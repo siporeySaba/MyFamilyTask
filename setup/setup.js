@@ -48,8 +48,13 @@ function renderKids() {
         <input type="text" class="kid-name" data-idx="${idx}" value="${escapeAttr(kid.name)}" placeholder="למשל: נועה">
       </div>
       <div class="field">
-        <label>תמונה (קישור - אפשר להוסיף מאוחר יותר)</label>
-        <input type="text" class="kid-photo" data-idx="${idx}" value="${escapeAttr(kid.photoUrl)}" placeholder="https://...">
+        <label>תמונה</label>
+        <div style="display:flex; align-items:center; gap:14px;">
+          <div class="kid-avatar" style="width:70px;height:70px;font-size:1.8rem;">
+            ${kid.photoUrl ? `<img src="${kid.photoUrl}" alt="">` : '🙂'}
+          </div>
+          <input type="file" accept="image/*" class="kid-photo-file" data-idx="${idx}">
+        </div>
       </div>
 
       <div class="field">
@@ -80,8 +85,16 @@ function renderKids() {
   list.querySelectorAll('.kid-name').forEach(el => el.addEventListener('input', e => {
     state.kids[e.target.dataset.idx].name = e.target.value;
   }));
-  list.querySelectorAll('.kid-photo').forEach(el => el.addEventListener('input', e => {
-    state.kids[e.target.dataset.idx].photoUrl = e.target.value;
+  list.querySelectorAll('.kid-photo-file').forEach(el => el.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const idx = e.target.dataset.idx;
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.kids[idx].photoUrl = reader.result; // data URL - נשמר ישירות, בלי אחסון חיצוני
+      renderKids();
+    };
+    reader.readAsDataURL(file);
   }));
   list.querySelectorAll('.kid-bonus').forEach(el => el.addEventListener('input', e => {
     state.kids[e.target.dataset.idx].dailyBonus = Number(e.target.value) || 0;
@@ -124,7 +137,10 @@ function onSave() {
     if (!kid.name.trim()) { alert('נא למלא שם לכל ילד'); return; }
   }
   saveFamily(state);
-  location.href = '../index.html';
+  // ניווט עמיד: גוזרים את שורש האתר מתוך הנתיב הנוכחי (לא תלוי אם הכתובת
+  // הסתיימה ב-"/" או לא), כדי שהניתוב לא "יקפוץ" רמה אחת יותר מדי למעלה.
+  const root = location.pathname.replace(/setup\/?(index\.html)?$/, '');
+  location.href = root + 'index.html';
 }
 
 function escapeAttr(str) {
