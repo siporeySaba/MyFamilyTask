@@ -21,7 +21,6 @@ function showKidSelect() {
         </div>
       `).join('')}
     </div>
-    <div class="link-row"><a href="admin/index.html">כניסת הורים</a></div>
   `;
   app.querySelectorAll('.kid-card').forEach(el => {
     el.addEventListener('click', () => showTasks(el.dataset.kid));
