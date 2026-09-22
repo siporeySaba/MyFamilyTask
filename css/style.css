@@ -247,3 +247,25 @@ input, textarea, select {
 
 .link-row { margin-top: 24px; text-align: center; }
 .link-row a { color: var(--muted); text-decoration: underline; }
+
+/* ---- פינת איחולים מההורים ---- */
+.blessing-corner {
+  margin-top: 36px;
+  background: linear-gradient(135deg, #fff3e0, #ffe8cf);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  max-width: 520px;
+  margin-inline: auto;
+}
+.blessing-corner .blessing-icon { font-size: 2rem; line-height: 1; }
+.blessing-corner p {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  white-space: pre-wrap;
+}
