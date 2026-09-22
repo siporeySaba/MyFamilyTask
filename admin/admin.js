@@ -1,5 +1,5 @@
 import { onAuthChange, getFamilyIdForUser, signInWithGoogle, signOutUser } from '../js/auth.js';
-import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints } from '../js/db.js';
+import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints, setBlessingText } from '../js/db.js';
 
 const app = document.getElementById('app');
 app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
@@ -56,10 +56,22 @@ async function render(user) {
 
     ${kidCards.join('')}
 
+    <div class="card">
+      <h2>מילה מאבא ואמא 💌</h2>
+      <p style="color:var(--muted); margin-top:0;">מוצג לכל הילדים במסך הראשי.</p>
+      <textarea id="blessing-text" rows="3" placeholder="למשל: אנחנו גאים בכם היום! ❤️">${family?.blessingText || ''}</textarea>
+    </div>
+
     <div class="link-row"><a href="../setup/index.html">עריכת ילדים ומשימות</a></div>
   `;
 
   document.getElementById('signout-btn').addEventListener('click', () => signOutUser());
+
+  const blessingTa = document.getElementById('blessing-text');
+  blessingTa.addEventListener('input', () => {
+    clearTimeout(debounceTimers.blessing);
+    debounceTimers.blessing = setTimeout(() => setBlessingText(familyId, blessingTa.value), 600);
+  });
 
   kids.forEach(kid => {
     const ta = document.getElementById('hw-' + kid.id);
