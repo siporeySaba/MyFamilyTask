@@ -17,12 +17,12 @@
 ## מבנה נתונים ב-Firestore
 ```
 users/{uid}                        → { familyId }
-families/{familyId}                → { name, ownerUid, createdAt }
+families/{familyId}                → { name, ownerUid, createdAt, blessingText, sipureiSabaLogoUrl, familyPoints }
 families/{familyId}/kids/{kidId}   → { name, photoUrl, selectedTasks:[{taskId,points}], dailyBonus, points:{lifetime,redeemable,daily,dailyDate} }
-families/{familyId}/kids/{kidId}/days/{YYYY-MM-DD} → { completed:{taskId:true}, homeworkText }
+families/{familyId}/kids/{kidId}/days/{YYYY-MM-DD} → { completed:{taskId:true}, homeworkText, bonusAwarded }
 ```
-קטלוג 15 המשימות הקבוע נשאר קובץ סטטי בקוד (`js/taskCatalog.js`) ולא ב-Firestore,
-כי הוא זהה לכל המשפחות ולא משתנה.
+קטלוג המשימות הקבוע (26 משימות, לבחירת עד 10 לכל ילד) נשאר קובץ סטטי בקוד
+(`js/taskCatalog.js`) ולא ב-Firestore, כי הוא זהה לכל המשפחות ולא משתנה.
 
 ## הגדרת Firestore Security Rules (חובה!)
 בלי זה, כל אחד בעל חשבון Google יכול תיאורטית לקרוא/לכתוב לכל משפחה.
@@ -57,7 +57,7 @@ js/
   auth.js             התחברות/התנתקות Google, קישור משתמש↔משפחה
   db.js               כל הגישה ל-Firestore (family/kids/days/points)
   main.js             מסך הילדים
-  taskCatalog.js       קטלוג 15 המשימות הקבועות
+  taskCatalog.js       קטלוג 26 המשימות הקבועות
 setup/   index.html, setup.js   הגדרת/עריכת משפחה
 admin/   index.html, admin.js   מסך הורה
 assets/icons/         אייקוני PWA
@@ -82,12 +82,23 @@ assets/icons/         אייקוני PWA
 - **תמונות משימות אמיתיות** במקום אימוג'י (מחליפים ב-`taskCatalog.js`).
 - **שיעורי בית עם תמונה** (כרגע טקסט בלבד).
 - **גרף התקדמות שבועי** (כרגע רק פס יומי).
-- **פינת איחולים מההורים** (פיצ'ר עתידי).
 - תמונות ילדים נשמרות כרגע כ-data URL בתוך מסמך הילד ב-Firestore — נוח
   לבדיקה, אבל יש מגבלת גודל מסמך (1MB); תמונה גדולה מדי תיכשל בשמירה. אם
   זה קורה, כדאי לעבור ל-Firebase Storage בשלב הבא.
 
-## נקודות (3 מונים, לכל ילד)
+## נקודות (3 מונים אישיים + מונה משפחתי משותף)
 1. **סה"כ** (lifetime) — לא מתאפס לעולם.
 2. **יתרה למימוש** (redeemable) — מתאפסת ידנית מה-admin כשהילד מקבל תגמול.
 3. **היום** (daily) — מתאפסת בחצות, ולפני האיפוס מצטרפת אוטומטית ליתרה.
+4. **מונה משפחתי** (`familyPoints` על מסמך המשפחה) — כשילד משלים את כל
+   המשימות שלו ביום מסוים, בונוס היום המלא שהוגדר לו (`dailyBonus`) נזקף גם
+   למונה המשפחתי המשותף, כדי לעודד את הילדים לתמוך אחד בשני. אם משימה
+   מבוטלת אחרי שהבונוס כבר ניתן (וכך היום כבר לא "מלא") - הבונוס מתבטל אוטומטית
+   גם אצל הילד וגם במונה המשפחתי, כך שהמספרים תמיד נשארים עקביים.
+   מוצג בראש מסך בחירת הילד, ובאופן קריאה-בלבד גם ב-admin.
+
+## פינת "סיפורי סבא"
+בתחתית מסך בחירת הילד (לא ליד המשימות, כדי לא "להתחרות" עם הקשר הורה-ילד):
+לוגו (מועלה מ-admin, נשמר כ-`sipureiSabaLogoUrl` על מסמך המשפחה) + כיתוב קבוע
+"חפשו אותנו - סיפורי סבא - ביוטיוב ובספוטיפיי". בכוונה **לא לחיץ** (טקסט רגיל,
+לא קישור), כדי שילד לא ייצא בטעות מהאפליקציה.
