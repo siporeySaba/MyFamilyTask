@@ -1,20 +1,52 @@
-import { getFamily, isFamilySetup, getDay, toggleTaskDone, setHomeworkText, getPoints, addPoints, removePoints, todayStr } from './db.js';
+import { onAuthChange, getFamilyIdForUser } from './auth.js';
+import { getFamilyMeta, getKids, getKid, getDay, toggleTaskDone, getPoints, addPoints, removePoints } from './db.js';
 import { getCatalogTask } from './taskCatalog.js';
 
 const app = document.getElementById('app');
+app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
 
-if (!isFamilySetup()) {
-  location.href = 'setup/index.html';
-} else {
+let currentFamilyId = null;
+
+onAuthChange(async (user) => {
+  if (!user) {
+    showNotSignedIn();
+    return;
+  }
+  const familyId = await getFamilyIdForUser(user.uid);
+  if (!familyId) {
+    showNoFamilyYet();
+    return;
+  }
+  currentFamilyId = familyId;
   showKidSelect();
+});
+
+function showNotSignedIn() {
+  app.innerHTML = `
+    <div style="text-align:center; margin-top:60px;">
+      <h2>עדיין לא מחוברים 👋</h2>
+      <p>יש לבקש מהורה להתחבר דרך מסך הניהול.</p>
+      <a class="btn" href="admin/index.html">כניסת הורים</a>
+    </div>
+  `;
 }
 
-function showKidSelect() {
-  const family = getFamily();
+function showNoFamilyYet() {
+  app.innerHTML = `
+    <div style="text-align:center; margin-top:60px;">
+      <h2>עוד לא הוגדרה משפחה 🙂</h2>
+      <a class="btn" href="setup/index.html">להגדרת המשפחה</a>
+    </div>
+  `;
+}
+
+async function showKidSelect() {
+  app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
+  const kids = await getKids(currentFamilyId);
   app.innerHTML = `
     <h1>שלום! 👋 מי זה? </h1>
     <div class="kid-grid">
-      ${family.kids.map(kid => `
+      ${kids.map(kid => `
         <div class="kid-card" data-kid="${kid.id}">
           <div class="kid-avatar">${kid.photoUrl ? `<img src="${kid.photoUrl}" alt="${kid.name}">` : '🙂'}</div>
           <div class="kid-name">${kid.name}</div>
@@ -27,13 +59,13 @@ function showKidSelect() {
   });
 }
 
-function showTasks(kidId) {
-  const family = getFamily();
-  const kid = family.kids.find(k => k.id === kidId);
-  const day = getDay(kidId);
-  const points = getPoints(kidId);
+async function showTasks(kidId) {
+  app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
+  const kid = await getKid(currentFamilyId, kidId);
+  const day = await getDay(currentFamilyId, kidId);
+  const points = await getPoints(currentFamilyId, kidId);
   const taskIds = kid.selectedTasks || [];
-  const doneCount = taskIds.filter(t => day.completed[t.taskId]).length;
+  const doneCount = taskIds.filter(t => day.completed?.[t.taskId]).length;
   const pct = taskIds.length ? Math.round((doneCount / taskIds.length) * 100) : 0;
 
   app.innerHTML = `
@@ -50,7 +82,7 @@ function showTasks(kidId) {
     <div class="task-grid">
       ${taskIds.map(t => {
         const cat = getCatalogTask(t.taskId);
-        const done = !!day.completed[t.taskId];
+        const done = !!day.completed?.[t.taskId];
         return `
           <button class="task-tile ${done ? 'done' : ''}" data-task="${t.taskId}" data-points="${t.points || 0}">
             <div class="icon">${cat ? cat.emoji : '❓'}</div>
@@ -65,7 +97,7 @@ function showTasks(kidId) {
   document.getElementById('back-btn').addEventListener('click', showKidSelect);
 
   app.querySelectorAll('.task-tile').forEach(tile => {
-    tile.addEventListener('click', () => {
+    tile.addEventListener('click', async () => {
       const taskId = tile.dataset.task;
       const cat = getCatalogTask(taskId);
       if (cat && cat.special === 'homework') {
@@ -73,15 +105,17 @@ function showTasks(kidId) {
         return;
       }
       const pointsVal = Number(tile.dataset.points) || 0;
-      const nowDone = toggleTaskDone(kidId, taskId);
-      if (nowDone) addPoints(kidId, pointsVal); else removePoints(kidId, pointsVal);
-      showTasks(kidId); // re-render (also refreshes points chips + progress bar)
+      tile.style.pointerEvents = 'none'; // מונע לחיצה כפולה בזמן שהבקשה רצה
+      const nowDone = await toggleTaskDone(currentFamilyId, kidId, taskId);
+      if (nowDone) await addPoints(currentFamilyId, kidId, pointsVal);
+      else await removePoints(currentFamilyId, kidId, pointsVal);
+      showTasks(kidId); // רענון מלא (גם שבבי הנקודות ופס ההתקדמות)
     });
   });
 }
 
-function openHomeworkModal(kidId, kidName) {
-  const day = getDay(kidId);
+async function openHomeworkModal(kidId, kidName) {
+  const day = await getDay(currentFamilyId, kidId);
   const slot = document.getElementById('homework-modal-slot');
   slot.innerHTML = `
     <div class="modal-backdrop">
@@ -94,14 +128,14 @@ function openHomeworkModal(kidId, kidName) {
     </div>
   `;
   document.getElementById('hw-close').addEventListener('click', () => { slot.innerHTML = ''; });
-  document.getElementById('hw-mark-done').addEventListener('click', () => {
+  document.getElementById('hw-mark-done').addEventListener('click', async () => {
     slot.innerHTML = '';
-    const family = getFamily();
-    const kid = family.kids.find(k => k.id === kidId);
+    const kid = await getKid(currentFamilyId, kidId);
     const hwEntry = (kid.selectedTasks || []).find(t => t.taskId === 'homework');
     const pointsVal = hwEntry ? (hwEntry.points || 0) : 0;
-    const nowDone = toggleTaskDone(kidId, 'homework');
-    if (nowDone) addPoints(kidId, pointsVal); else removePoints(kidId, pointsVal);
+    const nowDone = await toggleTaskDone(currentFamilyId, kidId, 'homework');
+    if (nowDone) await addPoints(currentFamilyId, kidId, pointsVal);
+    else await removePoints(currentFamilyId, kidId, pointsVal);
     showTasks(kidId);
   });
 }
