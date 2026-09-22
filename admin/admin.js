@@ -1,45 +1,86 @@
-import { getFamily, isFamilySetup, getDay, setHomeworkText, getPoints, redeemPoints, todayStr } from '../js/db.js';
+import { onAuthChange, getFamilyIdForUser, signInWithGoogle, signOutUser } from '../js/auth.js';
+import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints } from '../js/db.js';
 
 const app = document.getElementById('app');
+app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
 
-if (!isFamilySetup()) {
-  location.href = '../setup/index.html';
-} else {
-  render();
+let familyId = null;
+const debounceTimers = {};
+
+onAuthChange(async (user) => {
+  if (!user) {
+    showSignIn();
+    return;
+  }
+  familyId = await getFamilyIdForUser(user.uid);
+  if (!familyId) {
+    location.href = '../setup/index.html';
+    return;
+  }
+  render(user);
+});
+
+function showSignIn() {
+  app.innerHTML = `
+    <div style="text-align:center; margin-top:60px;">
+      <h2>ניהול - כניסת הורים 👨‍👩‍👧‍👦</h2>
+      <button class="btn" id="google-signin">התחברות עם Google</button>
+    </div>
+  `;
+  document.getElementById('google-signin').addEventListener('click', async () => {
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      alert('ההתחברות נכשלה: ' + err.message);
+    }
+  });
 }
 
-// הערה: זהו מסך ה-admin ללא הגנת התחברות עדיין (יתווסף Firebase Auth בהמשך).
-function render() {
-  const family = getFamily();
+async function render(user) {
+  app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
+  const family = await getFamilyMeta(familyId);
+  const kids = await getKids(familyId);
+
+  const kidCards = await Promise.all(kids.map(renderKidCard));
+
   app.innerHTML = `
     <div class="top-bar">
       <a class="btn ghost" href="../index.html">‹ למסך הילדים</a>
-      <h1>ניהול - ${family.name}</h1>
+      <h1>ניהול - ${family?.name || ''}</h1>
     </div>
-    <p style="color:var(--muted)">${new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+    <p style="color:var(--muted)">
+      ${new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}
+      · מחובר כ-${user.email}
+      <button class="btn ghost" id="signout-btn" style="margin-right:10px;">התנתקות</button>
+    </p>
 
-    ${family.kids.map(kid => renderKidCard(kid)).join('')}
+    ${kidCards.join('')}
 
     <div class="link-row"><a href="../setup/index.html">עריכת ילדים ומשימות</a></div>
   `;
 
-  family.kids.forEach(kid => {
+  document.getElementById('signout-btn').addEventListener('click', () => signOutUser());
+
+  kids.forEach(kid => {
     const ta = document.getElementById('hw-' + kid.id);
-    ta.addEventListener('input', () => setHomeworkText(kid.id, ta.value));
+    ta.addEventListener('input', () => {
+      clearTimeout(debounceTimers[kid.id]);
+      debounceTimers[kid.id] = setTimeout(() => setHomeworkText(familyId, kid.id, ta.value), 600);
+    });
 
     const redeemBtn = document.getElementById('redeem-' + kid.id);
-    redeemBtn.addEventListener('click', () => {
+    redeemBtn.addEventListener('click', async () => {
       if (confirm(`לאפס את יתרת הנקודות הניתנות למימוש של ${kid.name}?`)) {
-        redeemPoints(kid.id);
-        render();
+        await redeemPoints(familyId, kid.id);
+        render(user);
       }
     });
   });
 }
 
-function renderKidCard(kid) {
-  const day = getDay(kid.id);
-  const points = getPoints(kid.id);
+async function renderKidCard(kid) {
+  const day = await getDay(familyId, kid.id);
+  const points = await getPoints(familyId, kid.id);
   return `
     <div class="card">
       <h2>${kid.name}</h2>
