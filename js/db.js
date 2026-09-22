@@ -25,6 +25,11 @@ export async function updateFamilyMeta(familyId, patch) {
   await updateDoc(doc(db, 'families', familyId), patch);
 }
 
+// פינת "מילה מאבא/אמא" - הודעה אחת שמוצגת לכל הילדים במסך הראשי.
+export async function setBlessingText(familyId, text) {
+  await updateFamilyMeta(familyId, { blessingText: text });
+}
+
 // ---------- ילדים ----------
 export async function getKids(familyId) {
   const snap = await getDocs(collection(db, 'families', familyId, 'kids'));

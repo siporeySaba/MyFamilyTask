@@ -42,7 +42,10 @@ function showNoFamilyYet() {
 
 async function showKidSelect() {
   app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
-  const kids = await getKids(currentFamilyId);
+  const [kids, family] = await Promise.all([
+    getKids(currentFamilyId),
+    getFamilyMeta(currentFamilyId),
+  ]);
   app.innerHTML = `
     <h1>שלום! 👋 מי זה? </h1>
     <div class="kid-grid">
@@ -53,6 +56,12 @@ async function showKidSelect() {
         </div>
       `).join('')}
     </div>
+    ${family?.blessingText ? `
+      <div class="blessing-corner">
+        <div class="blessing-icon">💌</div>
+        <p>${escapeHtml(family.blessingText)}</p>
+      </div>
+    ` : ''}
   `;
   app.querySelectorAll('.kid-card').forEach(el => {
     el.addEventListener('click', () => showTasks(el.dataset.kid));
