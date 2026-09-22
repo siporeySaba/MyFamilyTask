@@ -1,13 +1,46 @@
-import { saveFamily, getFamily } from '../js/db.js';
+import { onAuthChange, getFamilyIdForUser, signInWithGoogle, linkUserToFamily } from '../js/auth.js';
+import { getFamilyMeta, getKids, createFamily, updateFamilyMeta, addKid, updateKid, deleteKid } from '../js/db.js';
 import { TASK_CATALOG } from '../js/taskCatalog.js';
 
 const app = document.getElementById('app');
+app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
 
-// טוען משפחה קיימת אם יש (עריכה חוזרת), אחרת מתחיל ריק
-const existing = getFamily();
-let state = existing || { id: 'fam-' + Date.now(), name: '', kids: [] };
+let currentUser = null;
+let familyId = null; // null = משפחה חדשה שעוד לא נוצרה
+let state = { name: '', kids: [] };
+let removedKidIds = [];
 
-render();
+onAuthChange(async (user) => {
+  currentUser = user;
+  if (!user) {
+    showSignIn();
+    return;
+  }
+  familyId = await getFamilyIdForUser(user.uid);
+  if (familyId) {
+    const meta = await getFamilyMeta(familyId);
+    const kids = await getKids(familyId);
+    state = { name: meta?.name || '', kids: kids.map(k => ({ ...k })) };
+  }
+  render();
+});
+
+function showSignIn() {
+  app.innerHTML = `
+    <div style="text-align:center; margin-top:60px;">
+      <h2>הגדרת המשפחה 👨‍👩‍👧‍👦</h2>
+      <p>כדי להתחיל, יש להתחבר עם חשבון Google.</p>
+      <button class="btn" id="google-signin">התחברות עם Google</button>
+    </div>
+  `;
+  document.getElementById('google-signin').addEventListener('click', async () => {
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      alert('ההתחברות נכשלה: ' + err.message);
+    }
+  });
+}
 
 function render() {
   app.innerHTML = `
@@ -31,7 +64,7 @@ function render() {
 
   document.getElementById('fam-name').addEventListener('input', e => state.name = e.target.value);
   document.getElementById('add-kid-btn').addEventListener('click', () => {
-    state.kids.push({ id: 'kid-' + Date.now(), name: '', photoUrl: '', selectedTasks: [], dailyBonus: 5 });
+    state.kids.push({ id: null, name: '', photoUrl: '', selectedTasks: [], dailyBonus: 5 });
     renderKids();
   });
   document.getElementById('save-btn').addEventListener('click', onSave);
@@ -91,7 +124,7 @@ function renderKids() {
     const idx = e.target.dataset.idx;
     const reader = new FileReader();
     reader.onload = () => {
-      state.kids[idx].photoUrl = reader.result; // data URL - נשמר ישירות, בלי אחסון חיצוני
+      state.kids[idx].photoUrl = reader.result;
       renderKids();
     };
     reader.readAsDataURL(file);
@@ -100,11 +133,13 @@ function renderKids() {
     state.kids[e.target.dataset.idx].dailyBonus = Number(e.target.value) || 0;
   }));
   list.querySelectorAll('.remove-kid').forEach(el => el.addEventListener('click', e => {
-    state.kids.splice(Number(e.target.dataset.idx), 1);
+    const idx = Number(e.target.dataset.idx);
+    const removed = state.kids[idx];
+    if (removed.id) removedKidIds.push(removed.id);
+    state.kids.splice(idx, 1);
     renderKids();
   }));
   list.querySelectorAll('.task-pick').forEach(el => el.addEventListener('click', e => {
-    // אל תפעיל את הבחירה אם לחצו על שדה המספר עצמו
     if (e.target.classList.contains('task-points')) return;
     const idx = Number(el.dataset.idx);
     const taskId = el.dataset.task;
@@ -130,17 +165,47 @@ function renderKids() {
   }));
 }
 
-function onSave() {
+async function onSave() {
   if (!state.name.trim()) { alert('נא להזין שם משפחה'); return; }
   if (state.kids.length === 0) { alert('נא להוסיף לפחות ילד אחד'); return; }
   for (const kid of state.kids) {
     if (!kid.name.trim()) { alert('נא למלא שם לכל ילד'); return; }
   }
-  saveFamily(state);
-  // ניווט עמיד: גוזרים את שורש האתר מתוך הנתיב הנוכחי (לא תלוי אם הכתובת
-  // הסתיימה ב-"/" או לא), כדי שהניתוב לא "יקפוץ" רמה אחת יותר מדי למעלה.
-  const root = location.pathname.replace(/setup\/?(index\.html)?$/, '');
-  location.href = root + 'index.html';
+
+  const saveBtn = document.getElementById('save-btn');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'שומר...';
+
+  try {
+    if (!familyId) {
+      // משפחה חדשה: קודם יוצרים את המשפחה, אח"כ מקשרים את המשתמש אליה,
+      // ורק אז יוצרים ילדים (חייב להיות בסדר הזה בגלל ה-Security Rules).
+      familyId = await createFamily(currentUser.uid, state.name.trim());
+      await linkUserToFamily(currentUser.uid, familyId);
+    } else {
+      await updateFamilyMeta(familyId, { name: state.name.trim() });
+    }
+
+    for (const kidId of removedKidIds) {
+      await deleteKid(familyId, kidId);
+    }
+    for (const kid of state.kids) {
+      const payload = {
+        name: kid.name.trim(),
+        photoUrl: kid.photoUrl || '',
+        selectedTasks: kid.selectedTasks,
+        dailyBonus: kid.dailyBonus,
+      };
+      if (kid.id) await updateKid(familyId, kid.id, payload);
+      else await addKid(familyId, payload);
+    }
+
+    location.href = '../index.html';
+  } catch (err) {
+    alert('שגיאה בשמירה: ' + err.message);
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'שמירה והמשך ←';
+  }
 }
 
 function escapeAttr(str) {
