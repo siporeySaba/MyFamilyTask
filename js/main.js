@@ -1,5 +1,5 @@
 import { onAuthChange, getFamilyIdForUser } from './auth.js';
-import { getFamilyMeta, getKids, getKid, getDay, toggleTaskDone, getPoints, addPoints, removePoints } from './db.js';
+import { getFamilyMeta, getKids, getKid, getDay, toggleTaskDone, getPoints, addPoints, removePoints, getFamilyPoints, syncDailyBonus } from './db.js';
 import { getCatalogTask } from './taskCatalog.js';
 
 const app = document.getElementById('app');
@@ -42,12 +42,18 @@ function showNoFamilyYet() {
 
 async function showKidSelect() {
   app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
-  const [kids, family] = await Promise.all([
+  const [kids, family, familyPoints] = await Promise.all([
     getKids(currentFamilyId),
     getFamilyMeta(currentFamilyId),
+    getFamilyPoints(currentFamilyId),
   ]);
   app.innerHTML = `
-    <h1>שלום! 👋 מי זה? </h1>
+    <div class="top-bar" style="justify-content:center; gap:14px;">
+      <h1 style="margin:0;">שלום! 👋 מי זה?</h1>
+    </div>
+    <div style="text-align:center; margin-bottom:20px;">
+      <div class="points-chip" style="display:inline-flex;">🏡 <span class="num">${familyPoints}</span> מונה משפחתי</div>
+    </div>
     <div class="kid-grid">
       ${kids.map(kid => `
         <div class="kid-card" data-kid="${kid.id}">
@@ -62,6 +68,12 @@ async function showKidSelect() {
         <p>${escapeHtml(family.blessingText)}</p>
       </div>
     ` : ''}
+    <div class="sipurei-saba-footer">
+      ${family?.sipureiSabaLogoUrl
+        ? `<img src="${family.sipureiSabaLogoUrl}" alt="סיפורי סבא">`
+        : `<span class="logo-placeholder">📖</span>`}
+      <span>חפשו אותנו - "סיפורי סבא" - ביוטיוב ובספוטיפיי</span>
+    </div>
   `;
   app.querySelectorAll('.kid-card').forEach(el => {
     el.addEventListener('click', () => showTasks(el.dataset.kid));
@@ -118,6 +130,7 @@ async function showTasks(kidId) {
       const nowDone = await toggleTaskDone(currentFamilyId, kidId, taskId);
       if (nowDone) await addPoints(currentFamilyId, kidId, pointsVal);
       else await removePoints(currentFamilyId, kidId, pointsVal);
+      await syncDailyBonus(currentFamilyId, kidId);
       showTasks(kidId); // רענון מלא (גם שבבי הנקודות ופס ההתקדמות)
     });
   });
@@ -145,6 +158,7 @@ async function openHomeworkModal(kidId, kidName) {
     const nowDone = await toggleTaskDone(currentFamilyId, kidId, 'homework');
     if (nowDone) await addPoints(currentFamilyId, kidId, pointsVal);
     else await removePoints(currentFamilyId, kidId, pointsVal);
+    await syncDailyBonus(currentFamilyId, kidId);
     showTasks(kidId);
   });
 }

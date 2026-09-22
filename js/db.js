@@ -1,7 +1,7 @@
 import { db } from './firebaseInit.js';
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
-  collection, getDocs, addDoc, serverTimestamp
+  collection, getDocs, addDoc, serverTimestamp, increment
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 export function todayStr() {
@@ -124,4 +124,35 @@ export async function redeemPoints(familyId, kidId) {
   const kid = await getKid(familyId, kidId);
   const p = kid.points;
   await updateKid(familyId, kidId, { points: { ...p, redeemable: 0 } });
+}
+
+// ---------- מונה משפחתי ----------
+// כשילד משלים את כל המשימות שלו ביום נתון, בונוס היום המלא שלו (dailyBonus)
+// נזקף גם למונה המשפחתי המשותף - כדי לעודד תמיכה הדדית בין הילדים.
+export async function getFamilyPoints(familyId) {
+  const family = await getFamilyMeta(familyId);
+  return family?.familyPoints || 0;
+}
+
+// בודק אם כל המשימות של הילד הושלמו היום; אם כן ועדיין לא ניתן בונוס - מעניק
+// אותו (לילד + למונה המשפחתי) פעם אחת. אם בוטלה השלמה מלאה אחרי שהבונוס כבר
+// ניתן - מבטל אותו (גם אצל הילד וגם במשפחתי), כדי שהמונים תמיד יהיו עקביים.
+export async function syncDailyBonus(familyId, kidId, date = todayStr()) {
+  const kid = await getKid(familyId, kidId);
+  const taskIds = kid.selectedTasks || [];
+  if (taskIds.length === 0) return;
+  const day = await getDay(familyId, kidId, date);
+  const allDone = taskIds.every(t => day.completed?.[t.taskId]);
+  const alreadyAwarded = !!day.bonusAwarded;
+  const bonus = kid.dailyBonus || 0;
+
+  if (allDone && !alreadyAwarded && bonus > 0) {
+    await addPoints(familyId, kidId, bonus);
+    await updateFamilyMeta(familyId, { familyPoints: increment(bonus) });
+    await setDayField(familyId, kidId, { bonusAwarded: true }, date);
+  } else if (!allDone && alreadyAwarded && bonus > 0) {
+    await removePoints(familyId, kidId, bonus);
+    await updateFamilyMeta(familyId, { familyPoints: increment(-bonus) });
+    await setDayField(familyId, kidId, { bonusAwarded: false }, date);
+  }
 }
