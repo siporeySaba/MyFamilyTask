@@ -269,3 +269,17 @@ input, textarea, select {
   color: var(--primary-dark);
   white-space: pre-wrap;
 }
+
+/* ---- טביעת יד "סיפורי סבא" - עדינה, לא לחיצה ---- */
+.sipurei-saba-footer {
+  margin-top: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+.sipurei-saba-footer img { height: 28px; width: auto; border-radius: 6px; }
+.sipurei-saba-footer .logo-placeholder { font-size: 1.3rem; }
