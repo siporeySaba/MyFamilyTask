@@ -1,5 +1,5 @@
 import { onAuthChange, getFamilyIdForUser, signInWithGoogle, signOutUser } from '../js/auth.js';
-import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints, setBlessingText } from '../js/db.js';
+import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints, setBlessingText, getFamilyPoints, updateFamilyMeta } from '../js/db.js';
 
 const app = document.getElementById('app');
 app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
@@ -40,6 +40,7 @@ async function render(user) {
   app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
   const family = await getFamilyMeta(familyId);
   const kids = await getKids(familyId);
+  const familyPoints = await getFamilyPoints(familyId);
 
   const kidCards = await Promise.all(kids.map(renderKidCard));
 
@@ -51,6 +52,7 @@ async function render(user) {
     <p style="color:var(--muted)">
       ${new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}
       · מחובר כ-${user.email}
+      · מונה משפחתי: <strong>${familyPoints}</strong>
       <button class="btn ghost" id="signout-btn" style="margin-right:10px;">התנתקות</button>
     </p>
 
@@ -62,10 +64,30 @@ async function render(user) {
       <textarea id="blessing-text" rows="3" placeholder="למשל: אנחנו גאים בכם היום! ❤️">${family?.blessingText || ''}</textarea>
     </div>
 
+    <div class="card">
+      <h2>לוגו סיפורי סבא 📖</h2>
+      <p style="color:var(--muted); margin-top:0;">מוצג בתחתית מסך הילדים.</p>
+      <div style="display:flex; align-items:center; gap:14px;">
+        ${family?.sipureiSabaLogoUrl ? `<img src="${family.sipureiSabaLogoUrl}" alt="" style="height:40px; border-radius:6px;">` : ''}
+        <input type="file" accept="image/*" id="logo-file">
+      </div>
+    </div>
+
     <div class="link-row"><a href="../setup/index.html">עריכת ילדים ומשימות</a></div>
   `;
 
   document.getElementById('signout-btn').addEventListener('click', () => signOutUser());
+
+  document.getElementById('logo-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      await updateFamilyMeta(familyId, { sipureiSabaLogoUrl: reader.result });
+      render(user);
+    };
+    reader.readAsDataURL(file);
+  });
 
   const blessingTa = document.getElementById('blessing-text');
   blessingTa.addEventListener('input', () => {
