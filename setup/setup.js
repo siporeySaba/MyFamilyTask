@@ -21,7 +21,14 @@ onAuthChange(async (user) => {
   if (familyId) {
     const meta = await getFamilyMeta(familyId);
     const kids = await getKids(familyId);
-    state = { name: meta?.name || '', kids: kids.map(k => ({ ...k })) };
+    const validIds = new Set(TASK_CATALOG.map(t => t.id));
+    state = {
+      name: meta?.name || '',
+      kids: kids.map(k => ({
+        ...k,
+        selectedTasks: (k.selectedTasks || []).filter(st => validIds.has(st.taskId)),
+      })),
+    };
   }
   render();
 });
