@@ -270,16 +270,20 @@ input, textarea, select {
   white-space: pre-wrap;
 }
 
-/* ---- טביעת יד "סיפורי סבא" - עדינה, לא לחיצה ---- */
+/* ---- טביעת יד "סיפורי סבא" - עדינה, לא לחיצה, לוגו גדול מעל הכיתוב ---- */
 .sipurei-saba-footer {
   margin-top: 40px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 0.85rem;
-  opacity: 0.8;
+  gap: 8px;
+  text-align: center;
 }
-.sipurei-saba-footer img { height: 28px; width: auto; border-radius: 6px; }
-.sipurei-saba-footer .logo-placeholder { font-size: 1.3rem; }
+.sipurei-saba-footer img { height: 96px; width: auto; border-radius: 14px; }
+.sipurei-saba-footer .logo-placeholder { font-size: 4rem; line-height: 1; }
+.sipurei-saba-footer .caption { color: var(--muted); font-size: 0.95rem; }
+.sipurei-saba-footer .announcement {
+  color: var(--primary-dark);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
