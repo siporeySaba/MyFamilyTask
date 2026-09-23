@@ -1,5 +1,5 @@
 import { onAuthChange, getFamilyIdForUser } from './auth.js';
-import { getFamilyMeta, getKids, getKid, getDay, toggleTaskDone, getPoints, addPoints, removePoints, getFamilyPoints, syncDailyBonus } from './db.js';
+import { getFamilyMeta, getKids, getKid, getDay, toggleTaskDone, getPoints, addPoints, removePoints, getFamilyPoints, syncDailyBonus, getSipureiSabaConfig } from './db.js';
 import { getCatalogTask } from './taskCatalog.js';
 
 const app = document.getElementById('app');
@@ -42,10 +42,11 @@ function showNoFamilyYet() {
 
 async function showKidSelect() {
   app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
-  const [kids, family, familyPoints] = await Promise.all([
+  const [kids, family, familyPoints, sipureiSaba] = await Promise.all([
     getKids(currentFamilyId),
     getFamilyMeta(currentFamilyId),
     getFamilyPoints(currentFamilyId),
+    getSipureiSabaConfig(),
   ]);
   app.innerHTML = `
     <div class="top-bar" style="justify-content:center; gap:14px;">
@@ -69,10 +70,11 @@ async function showKidSelect() {
       </div>
     ` : ''}
     <div class="sipurei-saba-footer">
-      ${family?.sipureiSabaLogoUrl
-        ? `<img src="${family.sipureiSabaLogoUrl}" alt="סיפורי סבא">`
+      ${sipureiSaba.logoUrl
+        ? `<img src="${sipureiSaba.logoUrl}" alt="סיפורי סבא">`
         : `<span class="logo-placeholder">📖</span>`}
-      <span>חפשו אותנו - "סיפורי סבא" - ביוטיוב ובספוטיפיי</span>
+      <span class="caption">${escapeHtml(sipureiSaba.caption || 'חפשו אותנו - "סיפורי סבא" - ביוטיוב ובספוטיפיי')}</span>
+      ${sipureiSaba.announcement ? `<span class="announcement">${escapeHtml(sipureiSaba.announcement)}</span>` : ''}
     </div>
   `;
   app.querySelectorAll('.kid-card').forEach(el => {

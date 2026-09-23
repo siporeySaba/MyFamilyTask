@@ -156,3 +156,17 @@ export async function syncDailyBonus(familyId, kidId, date = todayStr()) {
     await setDayField(familyId, kidId, { bonusAwarded: false }, date);
   }
 }
+
+// ---------- קונפיגורציה גלובלית (לא של משפחה ספציפית) ----------
+// פינת "סיפורי סבא" - לוגו, כיתוב קבוע, והודעה מתחלפת (למשל "פרק חדש היום").
+// מנוהל רק ע"י super admin (ראו js/adminConfig.js + superadmin/).
+const SIPUREI_SABA_DOC = doc(db, 'app_config', 'sipureiSaba');
+
+export async function getSipureiSabaConfig() {
+  const snap = await getDoc(SIPUREI_SABA_DOC);
+  return snap.exists() ? snap.data() : { logoUrl: '', caption: '', announcement: '' };
+}
+
+export async function setSipureiSabaConfig(patch) {
+  await setDoc(SIPUREI_SABA_DOC, patch, { merge: true });
+}
