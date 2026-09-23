@@ -1,5 +1,6 @@
 import { onAuthChange, getFamilyIdForUser, signInWithGoogle, linkUserToFamily } from '../js/auth.js';
 import { getFamilyMeta, getKids, createFamily, updateFamilyMeta, addKid, updateKid, deleteKid } from '../js/db.js';
+import { fileToResizedDataUrl } from '../js/imageUtil.js';
 import { TASK_CATALOG } from '../js/taskCatalog.js';
 
 const app = document.getElementById('app');
@@ -118,16 +119,16 @@ function renderKids() {
   list.querySelectorAll('.kid-name').forEach(el => el.addEventListener('input', e => {
     state.kids[e.target.dataset.idx].name = e.target.value;
   }));
-  list.querySelectorAll('.kid-photo-file').forEach(el => el.addEventListener('change', e => {
+  list.querySelectorAll('.kid-photo-file').forEach(el => el.addEventListener('change', async e => {
     const file = e.target.files[0];
     if (!file) return;
     const idx = e.target.dataset.idx;
-    const reader = new FileReader();
-    reader.onload = () => {
-      state.kids[idx].photoUrl = reader.result;
+    try {
+      state.kids[idx].photoUrl = await fileToResizedDataUrl(file, 400, 0.85);
       renderKids();
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      alert('שגיאה בטעינת התמונה: ' + err.message);
+    }
   }));
   list.querySelectorAll('.kid-bonus').forEach(el => el.addEventListener('input', e => {
     state.kids[e.target.dataset.idx].dailyBonus = Number(e.target.value) || 0;
