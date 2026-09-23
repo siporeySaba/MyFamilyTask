@@ -25,20 +25,31 @@ families/{familyId}/kids/{kidId}/days/{YYYY-MM-DD} → { completed:{taskId:true}
 (`js/taskCatalog.js`) ולא ב-Firestore, כי הוא זהה לכל המשפחות ולא משתנה.
 
 ## הגדרה חד-פעמית שחובה לעשות: מייל ה-super admin
-פינת "סיפורי סבא" (לוגו, כיתוב, הודעה מתחלפת) מנוהלת במסך נפרד `/superadmin/`
-שרק **מייל אחד** יכול לגשת אליו - לא כל משפחה. יש להחליף placeholder בשני
-מקומות לפני שזה יעבוד:
-1. `js/adminConfig.js` - השורה `SUPER_ADMIN_EMAIL = 'YOUR_EMAIL@gmail.com'`.
-2. `firestore.rules` - השורה בתוך `isSuperAdmin()` עם אותו מייל בדיוק.
-שני המקומות **חייבים** להכיל את אותו מייל Gmail (זה שאיתו תתחבר). הראשון
-שולט על ה-UI (מי רואה את העמוד), השני הוא האבטחה האמיתית (מי יכול לכתוב).
+פינת "סיפורי סבא" (לוגו, כיתוב, הודעה מתחלפת) מנוהלת במסך נפרד `/superadmin/`.
+כדי לא לחשוף את המייל שלך בקוד שרץ בדפדפן (שגלוי לכל מי שנכנס לאתר, בלי
+קשר אם ה-repo ציבורי או פרטי), **אין** בדיקת מייל בצד הלקוח בכלל - ההרשאה
+האמיתית היחידה היא ב-`firestore.rules`, שרץ בשרתי Firestore ולעולם לא
+נשלח לדפדפן.
+
+**חובה:**
+1. עורכים את `firestore.rules` (מקומית, לא ב-GitHub!) ומחליפים את
+   `YOUR_EMAIL@gmail.com` במייל ה-Gmail האמיתי שלך.
+2. מדביקים את התוכן המעודכן ישירות בקונסולת Firebase (Firestore → Rules →
+   Publish).
+3. **לא מעלים את קובץ `firestore.rules` עצמו ל-GitHub** — אם הוא יושב
+   בתיקיית ה-repo שמתפרסמת ב-Pages, הוא ייחשף כקובץ טקסט ציבורי רגיל
+   (בדיוק כמו `index.html`), והמייל שבתוכו יהיה גלוי לכל אחד. שומרים אותו
+   רק אצלכם במחשב, או במקום נפרד שלא מתפרסם.
+
+מי שאינו המייל המורשה עדיין יכול *לפתוח* את `/superadmin/` ולראות את
+הטופס (זה בסדר - התוכן שם ממילא מוצג לכולם במסך הילדים) - אבל כל ניסיון
+שמירה שלו ייכשל עם הודעת "אין לך הרשאה", כי ה-Rules יחסמו את הכתיבה בפועל.
 
 ## הגדרת Firestore Security Rules (חובה!)
 בלי זה, כל אחד בעל חשבון Google יכול תיאורטית לקרוא/לכתוב לכל משפחה.
-1. ב-Firebase Console → Build → Firestore Database → לשונית **Rules**.
-2. מעתיקים את כל התוכן של הקובץ `firestore.rules` (בחבילה הזו) ומדביקים שם,
-   מחליפים את מה שכבר כתוב.
-3. **Publish**.
+ב-Firebase Console → Build → Firestore Database → לשונית **Rules**, מדביקים
+את התוכן המעודכן של `firestore.rules` (המקומי אצלכם, עם המייל שערכתם) ולוחצים
+**Publish**. (ראו גם ההערה למעלה לגבי שמירת הקובץ הזה מחוץ ל-repo של GitHub.)
 
 ## הפעלת Google Sign-In
 Build → Authentication → Sign-in method → Google → Enable, ולוודא ב-Settings →
@@ -66,7 +77,6 @@ js/
   auth.js             התחברות/התנתקות Google, קישור משתמש↔משפחה
   db.js               כל הגישה ל-Firestore (family/kids/days/points/config גלובלי)
   imageUtil.js         כיווץ תמונות לפני שמירה (חוסך מגבלת 1MB של Firestore)
-  adminConfig.js        מייל ה-super admin - לערוך לפני שימוש!
   main.js             מסך הילדים
   taskCatalog.js       קטלוג 26 המשימות הקבועות
 setup/       index.html, setup.js       הגדרת/עריכת משפחה
