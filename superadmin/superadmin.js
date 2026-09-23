@@ -1,23 +1,22 @@
 import { onAuthChange, signInWithGoogle, signOutUser } from '../js/auth.js';
 import { getSipureiSabaConfig, setSipureiSabaConfig } from '../js/db.js';
 import { fileToResizedDataUrl } from '../js/imageUtil.js';
-import { SUPER_ADMIN_EMAIL } from '../js/adminConfig.js';
 
 const app = document.getElementById('app');
 app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
 
 const debounceTimers = {};
 
+// חשוב: אין כאן שום בדיקת מייל בקוד הלקוח (זה תמיד גלוי לכל אחד שפותח את
+// האתר). מי שבאמת מורשה לשמור נקבע אך ורק ע"י Firestore Security Rules,
+// שרצות בשרת ולא נחשפות לדפדפן. מי שאינו מורשה יראה את הטופס אך תישמר
+// שגיאה בלחיצה על שמירה.
 onAuthChange(async (user) => {
   if (!user) {
     showSignIn();
     return;
   }
-  if (user.email !== SUPER_ADMIN_EMAIL) {
-    showNotAuthorized(user);
-    return;
-  }
-  render();
+  render(user);
 });
 
 function showSignIn() {
@@ -33,18 +32,7 @@ function showSignIn() {
   });
 }
 
-function showNotAuthorized(user) {
-  app.innerHTML = `
-    <div style="text-align:center; margin-top:60px;">
-      <h2>אין הרשאה 🚫</h2>
-      <p style="color:var(--muted)">המשתמש ${user.email} אינו מורשה לעמוד זה.</p>
-      <button class="btn ghost" id="signout-btn">התנתקות</button>
-    </div>
-  `;
-  document.getElementById('signout-btn').addEventListener('click', () => signOutUser());
-}
-
-async function render() {
+async function render(user) {
   const config = await getSipureiSabaConfig();
   app.innerHTML = `
     <div class="top-bar">
@@ -52,6 +40,9 @@ async function render() {
       <button class="btn ghost" id="signout-btn">התנתקות</button>
     </div>
     <p style="color:var(--muted)">משפיע על מסך הילדים בכל המשפחות באפליקציה.</p>
+    <p id="access-note" style="display:none; color:#c0392b; font-weight:700;">
+      אין לך הרשאה לשמור שינויים כאן.
+    </p>
 
     <div class="card">
       <h2>לוגו</h2>
@@ -77,6 +68,10 @@ async function render() {
 
   document.getElementById('signout-btn').addEventListener('click', () => signOutUser());
 
+  function showAccessDenied() {
+    document.getElementById('access-note').style.display = 'block';
+  }
+
   document.getElementById('logo-file').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -85,20 +80,27 @@ async function render() {
       await setSipureiSabaConfig({ logoUrl: dataUrl });
       document.getElementById('logo-preview').innerHTML = `<img src="${dataUrl}" alt="" style="height:80px; border-radius:10px;">`;
     } catch (err) {
-      alert('שגיאה בהעלאת הלוגו: ' + err.message);
+      if (err.code === 'permission-denied') showAccessDenied();
+      else alert('שגיאה בהעלאת הלוגו: ' + err.message);
     }
   });
 
   const captionEl = document.getElementById('caption-text');
   captionEl.addEventListener('input', () => {
     clearTimeout(debounceTimers.caption);
-    debounceTimers.caption = setTimeout(() => setSipureiSabaConfig({ caption: captionEl.value }), 600);
+    debounceTimers.caption = setTimeout(async () => {
+      try { await setSipureiSabaConfig({ caption: captionEl.value }); }
+      catch (err) { if (err.code === 'permission-denied') showAccessDenied(); }
+    }, 600);
   });
 
   const announceEl = document.getElementById('announcement-text');
   announceEl.addEventListener('input', () => {
     clearTimeout(debounceTimers.announcement);
-    debounceTimers.announcement = setTimeout(() => setSipureiSabaConfig({ announcement: announceEl.value }), 600);
+    debounceTimers.announcement = setTimeout(async () => {
+      try { await setSipureiSabaConfig({ announcement: announceEl.value }); }
+      catch (err) { if (err.code === 'permission-denied') showAccessDenied(); }
+    }, 600);
   });
 }
 
