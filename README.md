@@ -21,7 +21,7 @@ families/{familyId}                → { name, ownerUid, createdAt, blessingText
 families/{familyId}/kids/{kidId}   → { name, photoUrl, selectedTasks:[{taskId,points}], dailyBonus, points:{lifetime,redeemable,daily,dailyDate} }
 families/{familyId}/kids/{kidId}/days/{YYYY-MM-DD} → { completed:{taskId:true}, homeworkText, bonusAwarded }
 ```
-קטלוג המשימות הקבוע (26 משימות, לבחירת עד 10 לכל ילד) נשאר קובץ סטטי בקוד
+קטלוג המשימות הקבוע (26 משימות, לבחירת עד 15 לכל ילד) נשאר קובץ סטטי בקוד
 (`js/taskCatalog.js`) ולא ב-Firestore, כי הוא זהה לכל המשפחות ולא משתנה.
 
 ## הגדרה חד-פעמית שחובה לעשות: מייל ה-super admin
@@ -107,7 +107,7 @@ assets/icons/         אייקוני PWA
 
 ## נקודות (3 מונים אישיים + מונה משפחתי משותף)
 1. **סה"כ** (lifetime) — לא מתאפס לעולם.
-2. **יתרה למימוש** (redeemable) — מתאפסת ידנית מה-admin כשהילד מקבל תגמול.
+2. **יתרה למימוש** (redeemable) — כשהילד בוחר תגמול, ההורה מזין ב-admin את עלותו בנקודות ורק הסכום הזה מנוכה (לא כל היתרה). אי אפשר לנכות יותר מהיתרה.
 3. **היום** (daily) — מתאפסת בחצות, ולפני האיפוס מצטרפת אוטומטית ליתרה.
 4. **מונה משפחתי** (`familyPoints` על מסמך המשפחה) — כשילד משלים את כל
    המשימות שלו ביום מסוים, בונוס היום המלא שהוגדר לו (`dailyBonus`) נזקף גם
