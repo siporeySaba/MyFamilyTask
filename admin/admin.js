@@ -83,9 +83,20 @@ async function render(user) {
     });
 
     const redeemBtn = document.getElementById('redeem-' + kid.id);
+    const amountInput = document.getElementById('redeem-amount-' + kid.id);
     redeemBtn.addEventListener('click', async () => {
-      if (confirm(`לאפס את יתרת הנקודות הניתנות למימוש של ${kid.name}?`)) {
-        await redeemPoints(familyId, kid.id);
+      const amount = Math.floor(Number(amountInput.value));
+      const available = Number(amountInput.max) || 0;
+      if (!amount || amount < 1) {
+        alert('נא להזין כמה נקודות עלה התגמול.');
+        return;
+      }
+      if (amount > available) {
+        alert(`ליתרה של ${kid.name} יש רק ${available} נקודות.`);
+        return;
+      }
+      if (confirm(`לנכות ${amount} נקודות מהיתרה של ${kid.name}?`)) {
+        await redeemPoints(familyId, kid.id, amount);
         render(user);
       }
     });
@@ -103,7 +114,11 @@ async function renderKidCard(kid) {
         <div class="points-chip">🎁 <span class="num">${points.redeemable}</span> ליתרה</div>
         <div class="points-chip">⭐ <span class="num">${points.daily}</span> היום</div>
       </div>
-      <button class="btn secondary" id="redeem-${kid.id}">אפסתי - הילד/ה קיבל/ה תגמול 🎉</button>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <input type="number" id="redeem-amount-${kid.id}" min="1" max="${points.redeemable}" inputmode="numeric"
+               placeholder="כמה נקודות עלה התגמול?" style="max-width:200px;">
+        <button class="btn secondary" id="redeem-${kid.id}">מימוש תגמול 🎉</button>
+      </div>
 
       <div class="field" style="margin-top:18px;">
         <label>שיעורי בית להיום</label>
