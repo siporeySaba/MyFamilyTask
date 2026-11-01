@@ -84,7 +84,7 @@ export async function setHomeworkText(familyId, kidId, text, date = todayStr()) 
 }
 
 // ---------- נקודות: 3 מונים, נשמרים ישירות על מסמך הילד ----------
-// lifetime: מצטבר לנצח. redeemable: מתאפסת ידנית ע"י ההורה. daily: מתאפסת בחצות ומצטרפת ל-redeemable.
+// lifetime: מצטבר לנצח. redeemable: ההורה מנכה ממנה את עלות התגמול. daily: מתאפסת בחצות ומצטרפת ל-redeemable.
 async function ensureDailyRollover(familyId, kidId, currentDate = todayStr()) {
   const kid = await getKid(familyId, kidId);
   if (!kid) return;
@@ -119,11 +119,17 @@ export async function removePoints(familyId, kidId, amount) {
   });
 }
 
-// ההורה מאפס את מונה #2 (redeemable) כשהילד מימש תגמול. lifetime ו-daily לא נוגעים.
-export async function redeemPoints(familyId, kidId) {
+// ההורה מנכה ממונה #2 (redeemable) רק את עלות התגמול שהילד בחר - לא את כל היתרה.
+// lifetime ו-daily לא נוגעים. מחזיר את הסכום שנוכה בפועל (לא יותר מהיתרה).
+export async function redeemPoints(familyId, kidId, amount) {
+  await ensureDailyRollover(familyId, kidId);
   const kid = await getKid(familyId, kidId);
   const p = kid.points;
-  await updateKid(familyId, kidId, { points: { ...p, redeemable: 0 } });
+  const deduct = Math.min(Math.max(0, Math.floor(Number(amount) || 0)), p.redeemable);
+  if (deduct > 0) {
+    await updateKid(familyId, kidId, { points: { ...p, redeemable: p.redeemable - deduct } });
+  }
+  return deduct;
 }
 
 // ---------- מונה משפחתי ----------
