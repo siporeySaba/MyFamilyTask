@@ -1,220 +1,320 @@
 :root {
-  --bg: #fef6e4;
+  --bg: #fff7ea;
+  --bg2: #ffeeda;
   --card: #ffffff;
-  --primary: #ff8552;
-  --primary-dark: #e8632f;
-  --accent: #6fcf97;
-  --accent-dark: #45b06f;
-  --text: #3b2f2f;
-  --muted: #9a8c8c;
-  --shadow: 0 6px 16px rgba(0,0,0,0.08);
-  --radius: 22px;
+  --primary: #ff7a45;
+  --primary-dark: #e85d24;
+  --primary-soft: #ffe6d8;
+  --accent: #4cc38a;
+  --accent-dark: #2fa66e;
+  --accent-soft: #dff6ea;
+  --gold: #ffb627;
+  --text: #3a2c28;
+  --muted: #9a8a84;
+  --line: #f1e3cf;
+  --shadow: 0 2px 4px rgba(120, 70, 30, .06), 0 10px 24px rgba(120, 70, 30, .08);
+  --radius: 24px;
 }
 
 * { box-sizing: border-box; }
 
 html, body {
   margin: 0;
-  height: 100%;
+  min-height: 100%;
   font-family: 'Heebo', 'Varela Round', system-ui, sans-serif;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 10% 0%, #fff1d6 0, transparent 40%),
+    radial-gradient(circle at 100% 100%, #ffe3d3 0, transparent 45%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   direction: rtl;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
 }
+input, textarea { -webkit-user-select: text; user-select: text; }
 
 body {
   min-height: 100vh;
-  padding: env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);
+  padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
 }
 
 .screen {
-  max-width: 960px;
+  max-width: 980px;
   margin: 0 auto;
   padding: 24px 20px 60px;
 }
 
 h1, h2, h3 { margin: 0 0 12px; }
-h1 { font-size: 2rem; }
-h2 { font-size: 1.4rem; }
+h1 { font-size: 2rem; font-weight: 800; }
+h2 { font-size: 1.4rem; font-weight: 800; }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
-  border: none;
-}
+button { font-family: inherit; cursor: pointer; border: none; color: inherit; }
 
 .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   background: var(--primary);
   color: white;
   padding: 14px 28px;
   border-radius: 999px;
   font-size: 1.1rem;
   font-weight: 700;
-  box-shadow: var(--shadow);
-  transition: transform .12s ease;
+  text-decoration: none;
+  box-shadow: 0 6px 0 var(--primary-dark), var(--shadow);
+  transition: transform .1s ease, box-shadow .1s ease;
 }
-.btn:active { transform: scale(0.96); }
-.btn.secondary { background: var(--accent); }
-.btn.ghost { background: transparent; color: var(--primary-dark); box-shadow: none; text-decoration: underline; }
+.btn:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--primary-dark); }
+.btn:disabled { opacity: .6; }
+.btn.secondary { background: var(--accent); box-shadow: 0 6px 0 var(--accent-dark), var(--shadow); }
+.btn.secondary:active { box-shadow: 0 2px 0 var(--accent-dark); }
+.btn.ghost { background: transparent; color: var(--primary-dark); box-shadow: none; text-decoration: underline; padding: 8px 12px; }
+.btn.ghost-btn { background: var(--card); color: var(--text); box-shadow: 0 4px 0 var(--line), var(--shadow); }
 
 input, textarea, select {
   font-family: inherit;
   font-size: 1rem;
   padding: 10px 14px;
   border-radius: 14px;
-  border: 2px solid #eee0c8;
+  border: 2px solid var(--line);
   width: 100%;
   background: white;
+  color: var(--text);
+  transition: border-color .15s;
 }
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); }
 
-/* ---- קבוצת בחירת ילד ---- */
+/* ---- מצבי טעינה / ריק ---- */
+.loading { display: grid; place-items: center; min-height: 60vh; }
+.spinner {
+  width: 54px; height: 54px; border-radius: 50%;
+  border: 6px solid var(--primary-soft); border-top-color: var(--primary);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { text-align: center; margin-top: 60px; display: grid; justify-items: center; gap: 6px; }
+.empty-state .big-emoji { font-size: 4rem; }
+.empty-state p { color: var(--muted); margin: 0 0 12px; }
+
+/* ---- מסך בחירת ילד ---- */
+.hello { text-align: center; margin: 8px 0 26px; }
+.hello h1 { font-size: 2.4rem; margin-bottom: 14px; }
+.family-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--card);
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+}
+.family-chip .num { font-size: 1.4rem; color: var(--primary-dark); font-weight: 800; }
+
 .kid-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 24px;
-  margin-top: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 22px;
+  margin-top: 10px;
 }
 .kid-card {
   background: var(--card);
-  border-radius: var(--radius);
-  padding: 18px 10px;
+  border-radius: 28px;
+  padding: 24px 12px 20px;
   text-align: center;
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
+  box-shadow: 0 6px 0 var(--line), var(--shadow);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  transition: transform .12s ease;
+  animation: rise .4s ease both;
+  animation-delay: calc(var(--i, 0) * 60ms);
 }
+.kid-card:active { transform: scale(.95); }
 .kid-avatar {
-  width: 110px;
-  height: 110px;
+  width: 120px; height: 120px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), #ffb385);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 3rem;
+  background: linear-gradient(135deg, var(--primary), var(--gold));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 3.2rem;
   color: white;
   overflow: hidden;
+  border: 5px solid #fff;
+  box-shadow: 0 0 0 3px var(--primary-soft);
 }
 .kid-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.kid-name { font-size: 1.3rem; font-weight: 700; }
+.kid-avatar.small { width: 56px; height: 56px; font-size: 1.6rem; border-width: 3px; }
+.kid-name { font-size: 1.5rem; font-weight: 800; }
 
-/* ---- גריד משימות ---- */
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* ---- מסך משימות ---- */
 .top-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 14px;
 }
+.back-btn {
+  background: var(--card);
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  box-shadow: 0 4px 0 var(--line), var(--shadow);
+}
+.back-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--line); }
+.kid-head { display: flex; align-items: center; gap: 12px; }
+.kid-head h2 { margin: 0; font-size: 1.8rem; }
+
 .points-row {
   display: flex;
-  gap: 14px;
-  margin: 10px 0 24px;
+  gap: 12px;
+  margin: 10px 0 18px;
   flex-wrap: wrap;
 }
 .points-chip {
   background: var(--card);
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 10px 16px;
   box-shadow: var(--shadow);
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: flex; align-items: center; gap: 8px;
 }
-.points-chip .num { font-size: 1.3rem; color: var(--primary-dark); }
+.points-chip .num { font-size: 1.5rem; color: var(--primary-dark); font-weight: 800; font-variant-numeric: tabular-nums; }
+.points-chip small { color: var(--muted); font-size: .9rem; }
+.points-chip.today { background: linear-gradient(135deg, #fff3c4, #ffe1a8); }
 
+.progress { margin-bottom: 22px; }
 .progress-bar-wrap {
-  background: #f0e2c5;
+  background: #f6e6cc;
   border-radius: 999px;
-  height: 22px;
+  height: 24px;
   overflow: hidden;
-  margin-bottom: 24px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.06);
 }
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-dark));
-  transition: width .3s ease;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent), #7ee0a8);
+  border-radius: 999px;
+  transition: width .45s cubic-bezier(.3,1.4,.6,1);
 }
+.progress-label { text-align: center; font-weight: 700; color: var(--muted); margin-top: 8px; }
 
 .task-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 16px;
 }
 .task-tile {
   background: var(--card);
-  border-radius: 20px;
-  padding: 16px 8px;
+  border-radius: 24px;
+  padding: 18px 8px 14px;
   text-align: center;
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  transition: transform .15s ease, background .2s ease;
+  box-shadow: 0 6px 0 var(--line), var(--shadow);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  transition: transform .12s ease, background .25s ease, box-shadow .12s ease;
   position: relative;
+  animation: rise .35s ease both;
+  animation-delay: calc(var(--i, 0) * 35ms);
 }
 .task-tile .icon {
-  font-size: 2.6rem;
-  width: 78px;
-  height: 78px;
+  font-size: 2.8rem;
+  width: 84px; height: 84px;
   border-radius: 50%;
-  background: #f4ede0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: #fbf1e1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .25s ease;
 }
-.task-tile .label { font-weight: 700; font-size: .95rem; }
-.task-tile.done {
-  background: #e6f8ee;
+.task-tile .label { font-weight: 700; font-size: 1rem; line-height: 1.25; }
+.task-tile .pts {
+  font-size: .8rem; font-weight: 800;
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+  border-radius: 999px; padding: 2px 10px;
 }
-.task-tile.done .icon {
-  background: var(--accent);
-  color: white;
-}
+.task-tile.done { background: var(--accent-soft); box-shadow: 0 6px 0 #bfe9d2, var(--shadow); }
+.task-tile.done .icon { background: var(--accent); }
+.task-tile.done .pts { background: #fff; color: var(--accent-dark); }
 .task-tile.done::after {
   content: '✓';
-  position: absolute;
-  top: 8px;
-  left: 8px;
+  position: absolute; top: 10px; left: 10px;
   background: var(--accent-dark);
   color: white;
-  width: 26px;
-  height: 26px;
+  width: 30px; height: 30px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   font-weight: 900;
 }
-.task-tile:active { transform: scale(0.94); }
+.task-tile:active { transform: translateY(4px) scale(.97); box-shadow: 0 2px 0 var(--line); }
+.task-tile.pop { animation: pop .45s ease; }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }
+
+.celebrate {
+  position: fixed; inset: 0;
+  display: grid; place-items: center;
+  font-size: 9rem;
+  pointer-events: none;
+  z-index: 60;
+}
+.celebrate[hidden] { display: none; }
+.celebrate.go { animation: party 1.6s ease forwards; }
+@keyframes party {
+  0% { transform: scale(.2); opacity: 0; }
+  30% { transform: scale(1.2); opacity: 1; }
+  70% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+#toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translate(-50%, 20px);
+  background: #3a2c28; color: #fff;
+  padding: 12px 20px; border-radius: 16px;
+  font-weight: 700;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s, transform .25s;
+  z-index: 70;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---- פאנל שיעורי בית ---- */
 .modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: fixed; inset: 0;
+  background: rgba(58, 44, 40, .45);
+  display: flex; align-items: center; justify-content: center;
   padding: 20px;
   z-index: 50;
+  animation: fade .2s ease;
 }
+@keyframes fade { from { opacity: 0; } }
 .modal {
   background: white;
-  border-radius: var(--radius);
-  padding: 24px;
-  max-width: 480px;
+  border-radius: 28px;
+  padding: 26px;
+  max-width: 500px;
   width: 100%;
   box-shadow: var(--shadow);
+  animation: rise .25s ease;
+  display: grid; gap: 10px;
 }
 .modal .close-x {
-  float: left;
-  background: none;
-  font-size: 1.4rem;
+  justify-self: end;
+  background: var(--bg);
+  width: 40px; height: 40px; border-radius: 50%;
+  font-size: 1.2rem;
   color: var(--muted);
+  margin-bottom: -40px;
+}
+.modal h3 { font-size: 1.5rem; margin: 0; }
+.hw-text {
+  white-space: pre-wrap;
+  min-height: 60px;
+  font-size: 1.2rem;
+  line-height: 1.6;
+  background: #fffaf1;
+  border: 2px dashed var(--line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 4px 0 8px;
 }
 
 /* ---- טופסי אדמין / הגדרה ---- */
@@ -223,7 +323,7 @@ input, textarea, select {
 .card {
   background: var(--card);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 22px;
   box-shadow: var(--shadow);
   margin-bottom: 20px;
 }
@@ -235,36 +335,50 @@ input, textarea, select {
 }
 .task-pick {
   border: 3px solid transparent;
-  border-radius: 16px;
-  background: #f7f0e2;
+  border-radius: 18px;
+  background: #fbf3e5;
   padding: 10px 6px;
   text-align: center;
   cursor: pointer;
+  transition: background .15s, border-color .15s;
 }
-.task-pick.selected { border-color: var(--accent-dark); background: #e6f8ee; }
+.task-pick.selected { border-color: var(--accent); background: var(--accent-soft); }
 .task-pick .icon { font-size: 1.8rem; }
-.task-pick input[type=number] { margin-top: 6px; width: 60px; text-align: center; }
+.task-pick input[type=number] { margin-top: 6px; width: 64px; text-align: center; padding: 6px; }
 
 .link-row { margin-top: 24px; text-align: center; }
 .link-row a { color: var(--muted); text-decoration: underline; }
 
+/* ---- גרף שבועי (מסך הורים) ---- */
+.week { margin: 4px 0 16px; }
+.week-title { font-size: .9rem; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+.wk-row { display: flex; gap: 8px; align-items: flex-end; }
+.wk-day { flex: 1; display: grid; gap: 4px; justify-items: center; }
+.wk-bar {
+  width: 100%; max-width: 36px; height: 64px;
+  background: #f6ead6; border-radius: 10px;
+  display: flex; align-items: flex-end; overflow: hidden;
+}
+.wk-bar span { display: block; width: 100%; background: var(--gold); border-radius: 10px; min-height: 0; }
+.wk-bar span.full { background: var(--accent); }
+.wk-lbl { font-size: .8rem; color: var(--muted); font-weight: 700; }
+.wk-day.today .wk-lbl { color: var(--primary-dark); }
+
 /* ---- פינת איחולים מההורים ---- */
 .blessing-corner {
   margin-top: 36px;
-  background: linear-gradient(135deg, #fff3e0, #ffe8cf);
+  background: linear-gradient(135deg, #fff3e0, #ffe2c7);
   border-radius: var(--radius);
   padding: 20px 24px;
   box-shadow: var(--shadow);
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  max-width: 520px;
+  display: flex; align-items: flex-start; gap: 14px;
+  max-width: 560px;
   margin-inline: auto;
 }
 .blessing-corner .blessing-icon { font-size: 2rem; line-height: 1; }
 .blessing-corner p {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--primary-dark);
   white-space: pre-wrap;
@@ -273,9 +387,7 @@ input, textarea, select {
 /* ---- טביעת יד "סיפורי סבא" - עדינה, לא לחיצה, לוגו גדול מעל הכיתוב ---- */
 .sipurei-saba-footer {
   margin-top: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: flex; flex-direction: column; align-items: center;
   gap: 8px;
   text-align: center;
 }
@@ -286,4 +398,15 @@ input, textarea, select {
   color: var(--primary-dark);
   font-weight: 700;
   font-size: 0.95rem;
+  background: var(--primary-soft);
+  padding: 4px 14px;
+  border-radius: 999px;
+}
+
+@media (max-width: 520px) {
+  .hello h1 { font-size: 1.9rem; }
+  .kid-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .kid-avatar { width: 96px; height: 96px; }
+  .task-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .top-bar { flex-wrap: wrap; }
 }

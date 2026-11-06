@@ -99,7 +99,7 @@ function renderKids() {
       </div>
 
       <div class="field">
-        <label>בחירת משימות (עד 10 מתוך 15) + נקודות לכל משימה</label>
+        <label>בחירת משימות (עד 15 משימות לכל ילד) + נקודות לכל משימה</label>
         <div class="task-pick-grid" data-kid-idx="${idx}">
           ${TASK_CATALOG.map(t => {
             const picked = kid.selectedTasks.find(st => st.taskId === t.id);
@@ -156,8 +156,8 @@ function renderKids() {
     if (existingPick) {
       kid.selectedTasks = kid.selectedTasks.filter(st => st.taskId !== taskId);
     } else {
-      if (kid.selectedTasks.length >= 10) {
-        alert('ניתן לבחור עד 10 משימות לכל ילד.');
+      if (kid.selectedTasks.length >= 15) {
+        alert('ניתן לבחור עד 15 משימות לכל ילד.');
         return;
       }
       kid.selectedTasks.push({ taskId, points: 5 });

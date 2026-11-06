@@ -1,5 +1,5 @@
 import { onAuthChange, getFamilyIdForUser, signInWithGoogle, signOutUser } from '../js/auth.js';
-import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints, setBlessingText, getFamilyPoints } from '../js/db.js';
+import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints, setBlessingText, getFamilyPoints, getRecentDays } from '../js/db.js';
 
 const app = document.getElementById('app');
 app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
@@ -47,11 +47,11 @@ async function render(user) {
   app.innerHTML = `
     <div class="top-bar">
       <a class="btn ghost" href="../index.html">‹ למסך הילדים</a>
-      <h1>ניהול - ${family?.name || ''}</h1>
+      <h1>ניהול - ${esc(family?.name || '')}</h1>
     </div>
     <p style="color:var(--muted)">
       ${new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}
-      · מחובר כ-${user.email}
+      · מחובר כ-${esc(user.email)}
       · מונה משפחתי: <strong>${familyPoints}</strong>
       <button class="btn ghost" id="signout-btn" style="margin-right:10px;">התנתקות</button>
     </p>
@@ -61,7 +61,7 @@ async function render(user) {
     <div class="card">
       <h2>מילה מאבא ואמא 💌</h2>
       <p style="color:var(--muted); margin-top:0;">מוצג לכל הילדים במסך הראשי.</p>
-      <textarea id="blessing-text" rows="3" placeholder="למשל: אנחנו גאים בכם היום! ❤️">${family?.blessingText || ''}</textarea>
+      <textarea id="blessing-text" rows="3" placeholder="למשל: אנחנו גאים בכם היום! ❤️">${esc(family?.blessingText || '')}</textarea>
     </div>
 
     <div class="link-row"><a href="../setup/index.html">עריכת ילדים ומשימות</a></div>
@@ -104,11 +104,29 @@ async function render(user) {
 }
 
 async function renderKidCard(kid) {
-  const day = await getDay(familyId, kid.id);
-  const points = await getPoints(familyId, kid.id);
+  const [day, points, week] = await Promise.all([
+    getDay(familyId, kid.id),
+    getPoints(familyId, kid.id),
+    getRecentDays(familyId, kid.id, 7),
+  ]);
+  const ids = (kid.selectedTasks || []).map(t => t.taskId);
+  const dayNames = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+  const bars = week.map((d, i) => {
+    const done = ids.filter(id => d.completed?.[id]).length;
+    const pct = ids.length ? Math.round((done / ids.length) * 100) : 0;
+    const wd = dayNames[new Date(d.date + 'T12:00').getDay()];
+    return `<div class="wk-day${i === week.length - 1 ? ' today' : ''}" title="${done}/${ids.length}">
+        <div class="wk-bar"><span style="height:${pct}%" class="${pct === 100 ? 'full' : ''}"></span></div>
+        <div class="wk-lbl">${wd}</div>
+      </div>`;
+  }).join('');
   return `
     <div class="card">
-      <h2>${kid.name}</h2>
+      <h2>${esc(kid.name)}</h2>
+      <div class="week">
+        <div class="week-title">השבוע האחרון</div>
+        <div class="wk-row">${bars}</div>
+      </div>
       <div class="points-row">
         <div class="points-chip">🏆 <span class="num">${points.lifetime}</span> סה"כ (לא מתאפס)</div>
         <div class="points-chip">🎁 <span class="num">${points.redeemable}</span> ליתרה</div>
@@ -122,8 +140,12 @@ async function renderKidCard(kid) {
 
       <div class="field" style="margin-top:18px;">
         <label>שיעורי בית להיום</label>
-        <textarea id="hw-${kid.id}" rows="4" placeholder="למשל: 5 עמודים בחוברת חשבון, לקרוא פרק בספר...">${day.homeworkText || ''}</textarea>
+        <textarea id="hw-${kid.id}" rows="4" placeholder="למשל: 5 עמודים בחוברת חשבון, לקרוא פרק בספר...">${esc(day.homeworkText || '')}</textarea>
       </div>
     </div>
   `;
+}
+
+function esc(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
