@@ -1,5 +1,6 @@
 import { onAuthChange, getFamilyIdForUser, signInWithGoogle, signOutUser } from '../js/auth.js';
-import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints, setBlessingText, getFamilyPoints, getRecentDays, setOrderStatus } from '../js/db.js';
+import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints, setBlessingText, getFamilyPoints, getRecentDays, setOrderStatus, buyItem } from '../js/db.js';
+import { SHOP_ITEMS, getShopItem } from '../js/shopCatalog.js';
 
 const app = document.getElementById('app');
 app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
@@ -103,7 +104,27 @@ async function render(user) {
 
     const redeemBtn = document.getElementById('redeem-' + kid.id);
     const amountInput = document.getElementById('redeem-amount-' + kid.id);
+    const itemSelect = document.getElementById('redeem-item-' + kid.id);
+    itemSelect.addEventListener('change', () => {
+      const it = getShopItem(itemSelect.value);
+      amountInput.value = it ? it.cost : '';
+    });
     redeemBtn.addEventListener('click', async () => {
+      const it = getShopItem(itemSelect.value);
+      // נבחרה הפתעה מהחנות והסכום לא שונה ידנית: נרשם גם בהיסטוריה ("נמסר לאחרונה")
+      if (it && Number(amountInput.value) === it.cost) {
+        if (!confirm(`לקנות ל${kid.name} ${it.name} ב-${it.cost} נקודות?`)) return;
+        redeemBtn.disabled = true;
+        try {
+          const { order } = await buyItem(familyId, kid.id, it.id);
+          await setOrderStatus(familyId, kid.id, order.id, 'delivered');
+          render(user);
+        } catch (err) {
+          redeemBtn.disabled = false;
+          alert(err.message === 'not-enough' ? `ליתרה של ${kid.name} אין מספיק נקודות.` : 'השמירה נכשלה: ' + err.message);
+        }
+        return;
+      }
       const amount = Math.floor(Number(amountInput.value));
       const available = Number(amountInput.max) || 0;
       if (!amount || amount < 1) {
@@ -153,6 +174,13 @@ async function renderKidCard(kid) {
       </div>
       ${ordersHtml(kid)}
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <select id="redeem-item-${kid.id}" style="max-width:260px;">
+          <option value="">🎁 בחירת הפתעה מהחנות…</option>
+          ${[...SHOP_ITEMS].sort((a, b) => a.cost - b.cost).map(it => `
+            <option value="${it.id}" ${it.cost > points.redeemable ? 'disabled' : ''}>
+              ${it.emoji} ${esc(it.name)} – ${it.cost}${it.cost > points.redeemable ? ` (חסרות ${it.cost - points.redeemable})` : ''}
+            </option>`).join('')}
+        </select>
         <input type="number" id="redeem-amount-${kid.id}" min="1" max="${points.redeemable}" inputmode="numeric"
                placeholder="כמה נקודות עלה התגמול?" style="max-width:200px;">
         <button class="btn secondary" id="redeem-${kid.id}">מימוש תגמול 🎉</button>
