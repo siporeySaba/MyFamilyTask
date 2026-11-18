@@ -291,7 +291,7 @@ async function showShop(kidId) {
           </div>`).join('')}
       </div>` : ''}
     <div class="shop-grid">
-      ${SHOP_ITEMS.map((it, i) => {
+      ${[...SHOP_ITEMS].sort((a, b) => a.cost - b.cost).map((it, i) => {
         const missing = it.cost - balance;
         return `
           <button class="shop-item ${missing > 0 ? 'cant' : ''}" data-item="${it.id}" style="--i:${i}">
