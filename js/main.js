@@ -4,7 +4,7 @@ import { SHOP_ITEMS, getShopItem } from './shopCatalog.js';
 // מצב הדגמה מקומי לבדיקות בלבד (localhost?demo) – לא נוגע בנתונים אמיתיים
 const DEMO = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('demo');
 const api = DEMO ? await import('./demoDb.js') : await import('./db.js');
-const { getFamilyMeta, getKids, getKid, getDay, toggleTask, getPoints, getFamilyPoints, getSipureiSabaConfig, todayStr, buyItem, setOrderStatus } = api;
+const { getFamilyMeta, getKids, getKid, getDay, toggleTask, getPoints, getFamilyPoints, getSipureiSabaConfig, todayStr } = api;
 
 const app = document.getElementById('app');
 const IDLE_MS = 3 * 60 * 1000; // חזרה למסך "מי זה?" אחרי 3 דקות בלי מגע
@@ -265,7 +265,6 @@ async function showShop(kidId) {
     return showError(err, () => showShop(kidId));
   }
   if (!kid) return showKidSelect();
-  const pending = (kid.shopOrders || []).filter(o => o.status === 'pending');
   const balance = points.redeemable;
 
   app.innerHTML = `
@@ -281,15 +280,6 @@ async function showShop(kidId) {
       <div class="shop-balance">יש לך <span class="num">${balance}</span> נקודות לקנייה</div>
       ${points.daily > 0 ? `<div class="shop-note">⭐ עוד ${points.daily} נקודות מהיום ייכנסו ליתרה מחר</div>` : ''}
     </div>
-    ${pending.length ? `
-      <div class="orders">
-        <div class="orders-title">⏳ מחכה לאבא ואמא:</div>
-        ${pending.map(o => `
-          <div class="order-chip">
-            <span>${o.emoji} ${escapeHtml(o.name)}</span>
-            <button class="order-cancel" data-order="${o.id}">ביטול</button>
-          </div>`).join('')}
-      </div>` : ''}
     <div class="shop-grid">
       ${[...SHOP_ITEMS].sort((a, b) => a.cost - b.cost).map((it, i) => {
         const missing = it.cost - balance;
@@ -303,62 +293,34 @@ async function showShop(kidId) {
       }).join('')}
     </div>
     <div id="shop-modal-slot"></div>
-    <div id="celebrate" class="celebrate" hidden>🎁</div>
   `;
 
   document.getElementById('back-btn').addEventListener('click', () => showTasks(kidId));
-  app.querySelectorAll('.order-cancel').forEach(btn => btn.addEventListener('click', async () => {
-    const o = pending.find(x => x.id === btn.dataset.order);
-    if (!o || !confirm(`לבטל את ${o.name} ולקבל בחזרה ${o.cost} נקודות?`)) return;
-    btn.disabled = true;
-    try {
-      await setOrderStatus(currentFamilyId, kidId, o.id, 'cancelled');
-      toast('בוטל, הנקודות חזרו אליך 👍');
-      showShop(kidId);
-    } catch (err) {
-      console.error(err);
-      btn.disabled = false;
-      toast('אופס, לא הצלחנו. בדקו את האינטרנט 🙏');
-    }
-  }));
   app.querySelectorAll('.shop-item').forEach(el => el.addEventListener('click', () => {
-    const it = getShopItem(el.dataset.item);
-    const missing = it.cost - balance;
-    if (missing > 0) return toast(`עוד ${missing} נקודות ואפשר לקנות! 💪`);
-    openBuyModal(kidId, it, balance);
+    openPriceModal(getShopItem(el.dataset.item), balance);
   }));
 }
 
-function openBuyModal(kidId, it, balance) {
+// הילד רק רואה כמה עולה וכמה יישאר לו. הקנייה עצמה – אצל ההורים.
+function openPriceModal(it, balance) {
   const slot = document.getElementById('shop-modal-slot');
+  const left = balance - it.cost;
   slot.innerHTML = `
     <div class="modal-backdrop" id="buy-backdrop">
       <div class="modal buy-modal">
         <div class="buy-emoji">${it.emoji}</div>
-        <h3>לקנות ${escapeHtml(it.name)}?</h3>
-        <p class="buy-sum">זה עולה <b>${it.cost}</b> נקודות. יישארו לך <b>${balance - it.cost}</b>.</p>
-        <button class="btn secondary" id="buy-yes">כן, אני רוצה! 🎉</button>
-        <button class="btn ghost-btn" id="buy-no">לא עכשיו</button>
+        <h3>${escapeHtml(it.name)}</h3>
+        <p class="buy-sum">עולה <b>${it.cost}</b> נקודות</p>
+        ${left >= 0
+          ? `<p class="buy-left ok">יש לך מספיק! 🎉<br>אחרי הקנייה יישארו לך <b>${left}</b> נקודות</p>
+             <p class="buy-hint">רוצה לקנות? בקשו מאבא או מאמא 😊</p>`
+          : `<p class="buy-left">חסרות לך עוד <b>${-left}</b> נקודות 💪</p>`}
+        <button class="btn ghost-btn" id="buy-no">סגירה</button>
       </div>
     </div>`;
   const close = () => { slot.innerHTML = ''; };
   document.getElementById('buy-no').addEventListener('click', close);
   document.getElementById('buy-backdrop').addEventListener('click', e => { if (e.target.id === 'buy-backdrop') close(); });
-  const yes = document.getElementById('buy-yes');
-  yes.addEventListener('click', async () => {
-    yes.disabled = true;
-    try {
-      await buyItem(currentFamilyId, kidId, it.id);
-      close();
-      await showShop(kidId);
-      celebrate('קנית! ספרו לאבא או לאמא 🎁');
-    } catch (err) {
-      console.error(err);
-      const notEnough = err.message === 'not-enough';
-      toast(notEnough ? 'אין מספיק נקודות 🙈' : 'אופס, לא נשמר. בדקו את האינטרנט 🙏');
-      if (notEnough) { close(); showShop(kidId); } else yes.disabled = false;
-    }
-  });
 }
 
 function celebrate(msg = 'יום מלא! קיבלת בונוס 🌟') {
