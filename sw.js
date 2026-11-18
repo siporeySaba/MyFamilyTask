@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kids-tasks-v2';
+const CACHE_NAME = 'kids-tasks-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const APP_SHELL = [
   './js/auth.js',
   './js/firebaseInit.js',
   './js/taskCatalog.js',
+  './js/shopCatalog.js',
   './manifest.json',
 ];
 

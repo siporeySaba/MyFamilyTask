@@ -1,4 +1,5 @@
 import { db } from './firebaseInit.js';
+import { getShopItem } from './shopCatalog.js';
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, getDocs, addDoc, serverTimestamp, increment, runTransaction
@@ -175,6 +176,54 @@ export async function redeemPoints(familyId, kidId, amount) {
     const deduct = Math.min(Math.max(0, Math.floor(Number(amount) || 0)), p.redeemable);
     tx.update(kidRef, { points: { ...p, redeemable: p.redeemable - deduct } });
     return deduct;
+  });
+}
+
+// ---------- חנות ההפתעות ----------
+// ההזמנות נשמרות על מסמך הילד (shopOrders), כך שהקנייה והורדת הנקודות קורות יחד בטרנזקציה אחת.
+// status: 'pending' (מחכה להורה) | 'delivered' (נמסר) | 'cancelled' (בוטל, הנקודות הוחזרו).
+function trimOrders(orders) {
+  const pending = orders.filter(o => o.status === 'pending');
+  const rest = orders.filter(o => o.status !== 'pending').slice(-30);
+  return [...rest, ...pending].sort((a, b) => a.at - b.at);
+}
+
+export async function buyItem(familyId, kidId, itemId) {
+  const item = getShopItem(itemId);
+  if (!item) throw new Error('unknown item');
+  const kidRef = doc(db, 'families', familyId, 'kids', kidId);
+  return runTransaction(db, async tx => {
+    const snap = await tx.get(kidRef);
+    if (!snap.exists()) throw new Error('kid not found');
+    const kid = snap.data();
+    const p = rolledPoints(kid.points, todayStr());
+    if (p.redeemable < item.cost) throw new Error('not-enough');
+    const order = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      itemId: item.id, name: item.name, emoji: item.emoji, cost: item.cost,
+      at: Date.now(), status: 'pending',
+    };
+    const points = { ...p, redeemable: p.redeemable - item.cost };
+    tx.update(kidRef, { points, shopOrders: trimOrders([...(kid.shopOrders || []), order]) });
+    return { points, order };
+  });
+}
+
+// סימון הזמנה כנמסרה, או ביטול שלה עם החזרת הנקודות ליתרה (רק אם עדיין מחכה).
+export async function setOrderStatus(familyId, kidId, orderId, status) {
+  const kidRef = doc(db, 'families', familyId, 'kids', kidId);
+  return runTransaction(db, async tx => {
+    const snap = await tx.get(kidRef);
+    if (!snap.exists()) throw new Error('kid not found');
+    const kid = snap.data();
+    const orders = [...(kid.shopOrders || [])];
+    const i = orders.findIndex(o => o.id === orderId);
+    let p = rolledPoints(kid.points, todayStr());
+    if (i < 0 || orders[i].status !== 'pending') return { points: p, changed: false };
+    orders[i] = { ...orders[i], status, doneAt: Date.now() };
+    if (status === 'cancelled') p = { ...p, redeemable: p.redeemable + (Number(orders[i].cost) || 0) };
+    tx.update(kidRef, { points: p, shopOrders: trimOrders(orders) });
+    return { points: p, changed: true };
   });
 }
 

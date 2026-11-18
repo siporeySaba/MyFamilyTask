@@ -1,3 +1,4 @@
+import { getShopItem } from './shopCatalog.js';
 // נתוני הדגמה בזיכרון בלבד – לבדיקות מקומיות (localhost?demo). לא נוגע ב-Firebase.
 export function todayStr() {
   const d = new Date();
@@ -9,10 +10,10 @@ const family = { name: 'משפחת הדגמה', familyPoints: 12, blessingText: 
 const kids = {
   a: { id: 'a', name: 'נועה', photoUrl: '', dailyBonus: 5,
        selectedTasks: ['brush-teeth', 'make-bed', 'homework', 'read-book', 'set-table', 'pajamas'].map(taskId => ({ taskId, points: 3 })),
-       points: { lifetime: 40, redeemable: 22, daily: 0, dailyDate: todayStr() } },
+       points: { lifetime: 40, redeemable: 250, daily: 0, dailyDate: todayStr() } },
   b: { id: 'b', name: 'איתי', photoUrl: '', dailyBonus: 5,
        selectedTasks: ['brush-teeth', 'get-dressed', 'tidy-toys'].map(taskId => ({ taskId, points: 2 })),
-       points: { lifetime: 15, redeemable: 9, daily: 0, dailyDate: todayStr() } },
+       points: { lifetime: 15, redeemable: 100, daily: 0, dailyDate: todayStr() } },
 };
 const days = {};
 const dayOf = (kidId, date = todayStr()) => (days[kidId + date] ||= { completed: {}, homeworkText: 'חוברת חשבון עמ׳ 12–13' });
@@ -39,4 +40,23 @@ export async function toggleTask(_f, kidId, taskId, forceDone) {
   kid.points = { ...kid.points, daily: kid.points.daily + delta, lifetime: kid.points.lifetime + delta };
   family.familyPoints += fam;
   return { done: now, points: { ...kid.points }, changed: true, bonusChange: fam };
+}
+
+export async function buyItem(_f, kidId, itemId) {
+  await wait(300);
+  const kid = kids[kidId], item = getShopItem(itemId);
+  if (kid.points.redeemable < item.cost) throw new Error('not-enough');
+  const order = { id: Date.now().toString(36), itemId, name: item.name, emoji: item.emoji, cost: item.cost, at: Date.now(), status: 'pending' };
+  kid.points = { ...kid.points, redeemable: kid.points.redeemable - item.cost };
+  kid.shopOrders = [...(kid.shopOrders || []), order];
+  return { points: { ...kid.points }, order };
+}
+
+export async function setOrderStatus(_f, kidId, orderId, status) {
+  await wait(200);
+  const kid = kids[kidId], o = (kid.shopOrders || []).find(x => x.id === orderId);
+  if (!o || o.status !== 'pending') return { points: { ...kid.points }, changed: false };
+  o.status = status;
+  if (status === 'cancelled') kid.points = { ...kid.points, redeemable: kid.points.redeemable + o.cost };
+  return { points: { ...kid.points }, changed: true };
 }

@@ -1,5 +1,5 @@
 import { onAuthChange, getFamilyIdForUser, signInWithGoogle, signOutUser } from '../js/auth.js';
-import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints, setBlessingText, getFamilyPoints, getRecentDays } from '../js/db.js';
+import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints, setBlessingText, getFamilyPoints, getRecentDays, setOrderStatus } from '../js/db.js';
 
 const app = document.getElementById('app');
 app.innerHTML = '<p style="text-align:center; margin-top:60px;">טוען...</p>';
@@ -64,7 +64,10 @@ async function render(user) {
       <textarea id="blessing-text" rows="3" placeholder="למשל: אנחנו גאים בכם היום! ❤️">${esc(family?.blessingText || '')}</textarea>
     </div>
 
-    <div class="link-row"><a href="../setup/index.html">עריכת ילדים ומשימות</a></div>
+    <div class="link-row">
+      <a href="../setup/index.html">עריכת ילדים ומשימות</a> ·
+      <a href="../shop/print.html" target="_blank">🖨️ מחירון חנות ההפתעות להדפסה</a>
+    </div>
   `;
 
   document.getElementById('signout-btn').addEventListener('click', () => signOutUser());
@@ -74,6 +77,22 @@ async function render(user) {
     clearTimeout(debounceTimers.blessing);
     debounceTimers.blessing = setTimeout(() => setBlessingText(familyId, blessingTa.value), 600);
   });
+
+  app.querySelectorAll('[data-order-act]').forEach(btn => btn.addEventListener('click', async () => {
+    const { kid: kidId, order, orderAct } = btn.dataset;
+    const kid = kids.find(k => k.id === kidId);
+    const o = (kid?.shopOrders || []).find(x => x.id === order);
+    if (!o) return;
+    if (orderAct === 'cancelled' && !confirm(`לבטל את ${o.name} ולהחזיר ל${kid.name} ${o.cost} נקודות?`)) return;
+    btn.disabled = true;
+    try {
+      await setOrderStatus(familyId, kidId, order, orderAct);
+      render(user);
+    } catch (err) {
+      btn.disabled = false;
+      alert('השמירה נכשלה: ' + err.message);
+    }
+  }));
 
   kids.forEach(kid => {
     const ta = document.getElementById('hw-' + kid.id);
@@ -132,6 +151,7 @@ async function renderKidCard(kid) {
         <div class="points-chip">🎁 <span class="num">${points.redeemable}</span> ליתרה</div>
         <div class="points-chip">⭐ <span class="num">${points.daily}</span> היום</div>
       </div>
+      ${ordersHtml(kid)}
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <input type="number" id="redeem-amount-${kid.id}" min="1" max="${points.redeemable}" inputmode="numeric"
                placeholder="כמה נקודות עלה התגמול?" style="max-width:200px;">
@@ -144,6 +164,27 @@ async function renderKidCard(kid) {
       </div>
     </div>
   `;
+}
+
+// הזמנות מחנות ההפתעות: מה שמחכה למסירה + היסטוריה קצרה
+function ordersHtml(kid) {
+  const orders = kid.shopOrders || [];
+  const pending = orders.filter(o => o.status === 'pending');
+  const recent = orders.filter(o => o.status === 'delivered').slice(-3).reverse();
+  const when = t => new Date(t).toLocaleString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+  if (!pending.length && !recent.length) return '';
+  return `
+    <div class="adm-orders">
+      <div class="adm-orders-title">🛍️ מחנות ההפתעות${pending.length ? ` – מחכה למסירה (${pending.length})` : ''}</div>
+      ${pending.map(o => `
+        <div class="adm-order">
+          <span class="what">${o.emoji} ${esc(o.name)} · ${o.cost} נק׳</span>
+          <span class="when">${when(o.at)}</span>
+          <button class="ok" data-order-act="delivered" data-kid="${kid.id}" data-order="${o.id}">✓ נמסר</button>
+          <button class="undo" data-order-act="cancelled" data-kid="${kid.id}" data-order="${o.id}">ביטול והחזר נקודות</button>
+        </div>`).join('')}
+      ${recent.length ? `<div class="adm-history">נמסר לאחרונה: ${recent.map(o => `${o.emoji} ${esc(o.name)}`).join(' · ')}</div>` : ''}
+    </div>`;
 }
 
 function esc(str) {

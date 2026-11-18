@@ -1,9 +1,10 @@
 import { getCatalogTask } from './taskCatalog.js';
+import { SHOP_ITEMS, getShopItem } from './shopCatalog.js';
 
 // מצב הדגמה מקומי לבדיקות בלבד (localhost?demo) – לא נוגע בנתונים אמיתיים
 const DEMO = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('demo');
 const api = DEMO ? await import('./demoDb.js') : await import('./db.js');
-const { getFamilyMeta, getKids, getKid, getDay, toggleTask, getPoints, getFamilyPoints, getSipureiSabaConfig, todayStr } = api;
+const { getFamilyMeta, getKids, getKid, getDay, toggleTask, getPoints, getFamilyPoints, getSipureiSabaConfig, todayStr, buyItem, setOrderStatus } = api;
 
 const app = document.getElementById('app');
 const IDLE_MS = 3 * 60 * 1000; // חזרה למסך "מי זה?" אחרי 3 דקות בלי מגע
@@ -37,6 +38,7 @@ function refreshIfNewDay() {
   if (!currentFamilyId) return;
   if (screen.date !== todayStr()) {
     if (screen.name === 'tasks') showTasks(screen.kidId);
+    else if (screen.name === 'shop') showShop(screen.kidId);
     else showKidSelect();
   }
 }
@@ -45,7 +47,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) refr
 
 function resetIdle() {
   clearTimeout(idleTimer);
-  if (screen.name === 'tasks') idleTimer = setTimeout(showKidSelect, IDLE_MS);
+  if (screen.name === 'tasks' || screen.name === 'shop') idleTimer = setTimeout(showKidSelect, IDLE_MS);
 }
 ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, resetIdle, { passive: true }));
 
@@ -150,6 +152,7 @@ async function showTasks(kidId) {
       <div class="points-chip">🎁 <span class="num" id="p-redeem">${points.redeemable}</span><small>ליתרה</small></div>
       <div class="points-chip">🏆 <span class="num" id="p-life">${points.lifetime}</span><small>סה"כ</small></div>
     </div>
+    <button class="shop-btn" id="shop-btn">🎁 חנות ההפתעות</button>
     <div class="progress">
       <div class="progress-bar-wrap"><div class="progress-bar-fill" id="prog"></div></div>
       <div class="progress-label" id="prog-label"></div>
@@ -186,6 +189,7 @@ async function showTasks(kidId) {
   updateProgress();
 
   document.getElementById('back-btn').addEventListener('click', showKidSelect);
+  document.getElementById('shop-btn').addEventListener('click', () => showShop(kidId));
 
   // סימון מהיר: המסך מתעדכן מיד, השמירה רצה ברקע. אם נכשלה – חוזר אחורה.
   async function setTask(taskId, forceDone) {
@@ -249,7 +253,115 @@ async function openHomeworkModal(kidId, kidName, isDone, setTask) {
   });
 }
 
-function celebrate() {
+// ---------- חנות ההפתעות ----------
+async function showShop(kidId) {
+  screen = { name: 'shop', kidId, date: todayStr() };
+  resetIdle();
+  app.innerHTML = loadingHtml();
+  let kid, points;
+  try {
+    [kid, points] = await Promise.all([getKid(currentFamilyId, kidId), getPoints(currentFamilyId, kidId)]);
+  } catch (err) {
+    return showError(err, () => showShop(kidId));
+  }
+  if (!kid) return showKidSelect();
+  const pending = (kid.shopOrders || []).filter(o => o.status === 'pending');
+  const balance = points.redeemable;
+
+  app.innerHTML = `
+    <div class="top-bar">
+      <button class="back-btn" id="back-btn">→ למשימות</button>
+      <div class="kid-head">
+        <div class="kid-avatar small">${kid.photoUrl ? `<img src="${kid.photoUrl}" alt="">` : '🙂'}</div>
+        <h2>${escapeHtml(kid.name)}</h2>
+      </div>
+    </div>
+    <div class="shop-hero">
+      <div class="shop-title">🎁 חנות ההפתעות</div>
+      <div class="shop-balance">יש לך <span class="num">${balance}</span> נקודות לקנייה</div>
+      ${points.daily > 0 ? `<div class="shop-note">⭐ עוד ${points.daily} נקודות מהיום ייכנסו ליתרה מחר</div>` : ''}
+    </div>
+    ${pending.length ? `
+      <div class="orders">
+        <div class="orders-title">⏳ מחכה לאבא ואמא:</div>
+        ${pending.map(o => `
+          <div class="order-chip">
+            <span>${o.emoji} ${escapeHtml(o.name)}</span>
+            <button class="order-cancel" data-order="${o.id}">ביטול</button>
+          </div>`).join('')}
+      </div>` : ''}
+    <div class="shop-grid">
+      ${SHOP_ITEMS.map((it, i) => {
+        const missing = it.cost - balance;
+        return `
+          <button class="shop-item ${missing > 0 ? 'cant' : ''}" data-item="${it.id}" style="--i:${i}">
+            <div class="icon">${it.emoji}</div>
+            <div class="label">${escapeHtml(it.name)}</div>
+            <div class="price">🪙 ${it.cost}</div>
+            ${missing > 0 ? `<div class="need"><div class="need-bar"><span style="width:${Math.round(Math.max(0, balance) / it.cost * 100)}%"></span></div>עוד ${missing}</div>` : ''}
+          </button>`;
+      }).join('')}
+    </div>
+    <div id="shop-modal-slot"></div>
+    <div id="celebrate" class="celebrate" hidden>🎁</div>
+  `;
+
+  document.getElementById('back-btn').addEventListener('click', () => showTasks(kidId));
+  app.querySelectorAll('.order-cancel').forEach(btn => btn.addEventListener('click', async () => {
+    const o = pending.find(x => x.id === btn.dataset.order);
+    if (!o || !confirm(`לבטל את ${o.name} ולקבל בחזרה ${o.cost} נקודות?`)) return;
+    btn.disabled = true;
+    try {
+      await setOrderStatus(currentFamilyId, kidId, o.id, 'cancelled');
+      toast('בוטל, הנקודות חזרו אליך 👍');
+      showShop(kidId);
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      toast('אופס, לא הצלחנו. בדקו את האינטרנט 🙏');
+    }
+  }));
+  app.querySelectorAll('.shop-item').forEach(el => el.addEventListener('click', () => {
+    const it = getShopItem(el.dataset.item);
+    const missing = it.cost - balance;
+    if (missing > 0) return toast(`עוד ${missing} נקודות ואפשר לקנות! 💪`);
+    openBuyModal(kidId, it, balance);
+  }));
+}
+
+function openBuyModal(kidId, it, balance) {
+  const slot = document.getElementById('shop-modal-slot');
+  slot.innerHTML = `
+    <div class="modal-backdrop" id="buy-backdrop">
+      <div class="modal buy-modal">
+        <div class="buy-emoji">${it.emoji}</div>
+        <h3>לקנות ${escapeHtml(it.name)}?</h3>
+        <p class="buy-sum">זה עולה <b>${it.cost}</b> נקודות. יישארו לך <b>${balance - it.cost}</b>.</p>
+        <button class="btn secondary" id="buy-yes">כן, אני רוצה! 🎉</button>
+        <button class="btn ghost-btn" id="buy-no">לא עכשיו</button>
+      </div>
+    </div>`;
+  const close = () => { slot.innerHTML = ''; };
+  document.getElementById('buy-no').addEventListener('click', close);
+  document.getElementById('buy-backdrop').addEventListener('click', e => { if (e.target.id === 'buy-backdrop') close(); });
+  const yes = document.getElementById('buy-yes');
+  yes.addEventListener('click', async () => {
+    yes.disabled = true;
+    try {
+      await buyItem(currentFamilyId, kidId, it.id);
+      close();
+      await showShop(kidId);
+      celebrate('קנית! ספרו לאבא או לאמא 🎁');
+    } catch (err) {
+      console.error(err);
+      const notEnough = err.message === 'not-enough';
+      toast(notEnough ? 'אין מספיק נקודות 🙈' : 'אופס, לא נשמר. בדקו את האינטרנט 🙏');
+      if (notEnough) { close(); showShop(kidId); } else yes.disabled = false;
+    }
+  });
+}
+
+function celebrate(msg = 'יום מלא! קיבלת בונוס 🌟') {
   const el = document.getElementById('celebrate');
   if (!el) return;
   el.hidden = false;
@@ -257,7 +369,7 @@ function celebrate() {
   void el.offsetWidth;
   el.classList.add('go');
   setTimeout(() => { el.hidden = true; }, 1800);
-  toast('יום מלא! קיבלת בונוס 🌟');
+  toast(msg);
 }
 
 function showError(err, retry) {
