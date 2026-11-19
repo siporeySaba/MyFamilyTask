@@ -3,13 +3,53 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ניהול - הורים</title>
+<title>ניהול משימות</title>
+<link rel="manifest" href="../manifest-admin.json">
+<meta name="theme-color" content="#2fa66e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ניהול משימות">
+<link rel="apple-touch-icon" href="../assets/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
+  <div id="install-bar" class="install-bar" hidden>
+    <span id="install-text">📲 אפשר להתקין את מסך הניהול כאפליקציה בטלפון</span>
+    <button class="btn secondary" id="install-btn" hidden>התקנה</button>
+    <button class="install-x" id="install-x" aria-label="סגירה">✕</button>
+  </div>
   <div id="app" class="screen"></div>
   <script type="module" src="admin.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('../sw.js');
+    (function () {
+      var bar = document.getElementById('install-bar'), btn = document.getElementById('install-btn');
+      var standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+      var dismissed = false;
+      try { dismissed = localStorage.getItem('admin.installDismissed') === '1'; } catch (e) {}
+      if (standalone || dismissed) return;
+      var deferred = null;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault(); deferred = e;
+        btn.hidden = false; bar.hidden = false;
+      });
+      btn.addEventListener('click', function () {
+        if (!deferred) return;
+        deferred.prompt();
+        deferred.userChoice.finally(function () { deferred = null; bar.hidden = true; });
+      });
+      // באייפון אין כפתור התקנה – מסבירים איך מוסיפים למסך הבית
+      if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+        document.getElementById('install-text').textContent = '📲 להתקנה: כפתור השיתוף ⬆️ ← "הוספה למסך הבית"';
+        bar.hidden = false;
+      }
+      document.getElementById('install-x').addEventListener('click', function () {
+        bar.hidden = true;
+        try { localStorage.setItem('admin.installDismissed', '1'); } catch (e) {}
+      });
+      window.addEventListener('appinstalled', function () { bar.hidden = true; });
+    })();
+  </script>
 </body>
 </html>

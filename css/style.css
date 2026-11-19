@@ -497,3 +497,18 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--p
 .buy-left { font-size: 1.15rem; margin: 0; color: var(--primary-dark); font-weight: 700; line-height: 1.5; }
 .buy-left.ok { color: var(--accent-dark); }
 .buy-hint { margin: 0 0 6px; color: var(--muted); font-weight: 700; }
+
+/* ---- מסך הורים: הורדה / הוספה של נקודות ---- */
+.pts-box { border-radius: 18px; padding: 12px 14px; margin: 0 0 12px; }
+.pts-box.redeem { background: #fff3ea; border: 2px solid #ffd9c2; }
+.pts-box.grant { background: #eafaf1; border: 2px solid #bfe9d2; }
+.pts-box-title { font-weight: 800; margin-bottom: 8px; }
+.pts-box-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pts-hint { color: var(--muted); font-size: .9rem; font-weight: 700; margin-top: 8px; }
+.pts-hint.bad { color: #d6453d; }
+.chip-btn { background: #fff; border: 2px solid #bfe9d2; color: var(--accent-dark); font-weight: 800; border-radius: 999px; padding: 6px 12px; }
+.install-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--accent-soft); border-bottom: 2px solid #bfe9d2; padding: 10px 16px; font-weight: 700; }
+.install-bar[hidden] { display: none; }
+.install-bar #install-text { flex: 1; }
+.install-bar .btn { padding: 8px 18px; }
+.install-x { color: var(--muted); font-size: 1.1rem; padding: 4px 8px; }

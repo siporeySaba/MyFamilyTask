@@ -1,5 +1,5 @@
 import { onAuthChange, getFamilyIdForUser, signInWithGoogle, signOutUser } from '../js/auth.js';
-import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints, setBlessingText, getFamilyPoints, getRecentDays, setOrderStatus, buyItem } from '../js/db.js';
+import { getFamilyMeta, getKids, getDay, setHomeworkText, getPoints, redeemPoints, setBlessingText, getFamilyPoints, getRecentDays, setOrderStatus, buyItem, grantPoints } from '../js/db.js';
 import { SHOP_ITEMS, getShopItem } from '../js/shopCatalog.js';
 
 const app = document.getElementById('app');
@@ -105,9 +105,43 @@ async function render(user) {
     const redeemBtn = document.getElementById('redeem-' + kid.id);
     const amountInput = document.getElementById('redeem-amount-' + kid.id);
     const itemSelect = document.getElementById('redeem-item-' + kid.id);
+    const hint = document.getElementById('redeem-hint-' + kid.id);
+    const hintDefault = hint.textContent;
+    // מראה מראש כמה יישאר לילד אחרי ההורדה
+    const updateHint = () => {
+      const amount = Math.floor(Number(amountInput.value));
+      const available = Number(amountInput.max) || 0;
+      if (!amount) { hint.textContent = hintDefault; hint.classList.remove('bad'); return; }
+      const left = available - amount;
+      hint.textContent = left >= 0
+        ? `יורדות ${amount} נקודות · יישארו ל${kid.name} ${left} נקודות`
+        : `ליתרה של ${kid.name} יש רק ${available} נקודות (חסרות ${-left})`;
+      hint.classList.toggle('bad', left < 0);
+    };
+    amountInput.addEventListener('input', updateHint);
     itemSelect.addEventListener('change', () => {
       const it = getShopItem(itemSelect.value);
       amountInput.value = it ? it.cost : '';
+      updateHint();
+    });
+
+    const grantInput = document.getElementById('grant-amount-' + kid.id);
+    const grantBtn = document.getElementById('grant-' + kid.id);
+    app.querySelectorAll(`[data-grant-quick="${kid.id}"]`).forEach(b =>
+      b.addEventListener('click', () => { grantInput.value = b.dataset.n; }));
+    grantBtn.addEventListener('click', async () => {
+      const amount = Math.floor(Number(grantInput.value));
+      if (!amount || amount < 1) return alert('נא להזין כמה נקודות להוסיף.');
+      if (amount > 1000 && !confirm(`${amount} נקודות זה הרבה. להמשיך?`)) return;
+      if (!confirm(`להוסיף ל${kid.name} ${amount} נקודות בונוס?`)) return;
+      grantBtn.disabled = true;
+      try {
+        await grantPoints(familyId, kid.id, amount);
+        render(user);
+      } catch (err) {
+        grantBtn.disabled = false;
+        alert('השמירה נכשלה: ' + err.message);
+      }
     });
     redeemBtn.addEventListener('click', async () => {
       const it = getShopItem(itemSelect.value);
@@ -128,14 +162,14 @@ async function render(user) {
       const amount = Math.floor(Number(amountInput.value));
       const available = Number(amountInput.max) || 0;
       if (!amount || amount < 1) {
-        alert('נא להזין כמה נקודות עלה התגמול.');
+        alert('נא להזין כמה נקודות להוריד (המחיר של התגמול).');
         return;
       }
       if (amount > available) {
         alert(`ליתרה של ${kid.name} יש רק ${available} נקודות.`);
         return;
       }
-      if (confirm(`לנכות ${amount} נקודות מהיתרה של ${kid.name}?`)) {
+      if (confirm(`להוריד ${amount} נקודות מהיתרה של ${kid.name}? יישארו ${available - amount}.`)) {
         await redeemPoints(familyId, kid.id, amount);
         render(user);
       }
@@ -173,17 +207,30 @@ async function renderKidCard(kid) {
         <div class="points-chip">⭐ <span class="num">${points.daily}</span> היום</div>
       </div>
       ${ordersHtml(kid)}
-      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-        <select id="redeem-item-${kid.id}" style="max-width:260px;">
-          <option value="">🎁 בחירת הפתעה מהחנות…</option>
-          ${[...SHOP_ITEMS].sort((a, b) => a.cost - b.cost).map(it => `
-            <option value="${it.id}" ${it.cost > points.redeemable ? 'disabled' : ''}>
-              ${it.emoji} ${esc(it.name)} – ${it.cost}${it.cost > points.redeemable ? ` (חסרות ${it.cost - points.redeemable})` : ''}
-            </option>`).join('')}
-        </select>
-        <input type="number" id="redeem-amount-${kid.id}" min="1" max="${points.redeemable}" inputmode="numeric"
-               placeholder="כמה נקודות עלה התגמול?" style="max-width:200px;">
-        <button class="btn secondary" id="redeem-${kid.id}">מימוש תגמול 🎉</button>
+      <div class="pts-box redeem">
+        <div class="pts-box-title">🎁 מימוש תגמול – <b>הורדת</b> נקודות מהיתרה</div>
+        <div class="pts-box-row">
+          <select id="redeem-item-${kid.id}" style="max-width:260px;">
+            <option value="">בחירת הפתעה מהחנות…</option>
+            ${[...SHOP_ITEMS].sort((a, b) => a.cost - b.cost).map(it => `
+              <option value="${it.id}" ${it.cost > points.redeemable ? 'disabled' : ''}>
+                ${it.emoji} ${esc(it.name)} – ${it.cost}${it.cost > points.redeemable ? ` (חסרות ${it.cost - points.redeemable})` : ''}
+              </option>`).join('')}
+          </select>
+          <input type="number" id="redeem-amount-${kid.id}" min="1" max="${points.redeemable}" inputmode="numeric"
+                 placeholder="כמה נקודות להוריד?" style="max-width:180px;">
+          <button class="btn secondary" id="redeem-${kid.id}">מימוש תגמול 🎉</button>
+        </div>
+        <div class="pts-hint" id="redeem-hint-${kid.id}">בוחרים הפתעה או מקלידים את המחיר שלה בנקודות. הסכום הזה יורד מהיתרה.</div>
+      </div>
+      <div class="pts-box grant">
+        <div class="pts-box-title">⭐ בונוס – <b>הוספת</b> נקודות</div>
+        <div class="pts-box-row">
+          ${[5, 10, 20, 50].map(n => `<button class="chip-btn" data-grant-quick="${kid.id}" data-n="${n}">+${n}</button>`).join('')}
+          <input type="number" id="grant-amount-${kid.id}" min="1" inputmode="numeric" placeholder="כמה נקודות להוסיף?" style="max-width:180px;">
+          <button class="btn" id="grant-${kid.id}">הוספת נקודות ⭐</button>
+        </div>
+        <div class="pts-hint">הנקודות נכנסות מיד ליתרה (אפשר לממש כבר היום) וגם לסה"כ.</div>
       </div>
 
       <div class="field" style="margin-top:18px;">

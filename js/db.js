@@ -227,6 +227,20 @@ export async function setOrderStatus(familyId, kidId, orderId, status) {
   });
 }
 
+// בונוס מההורה: נכנס מיד ליתרה (אפשר לממש כבר היום) וגם לסה"כ. טרנזקציה אחת.
+export async function grantPoints(familyId, kidId, amount) {
+  const add = Math.max(0, Math.floor(Number(amount) || 0));
+  const kidRef = doc(db, 'families', familyId, 'kids', kidId);
+  return runTransaction(db, async tx => {
+    const snap = await tx.get(kidRef);
+    if (!snap.exists()) throw new Error('kid not found');
+    const p = rolledPoints(snap.data().points, todayStr());
+    const points = { ...p, redeemable: p.redeemable + add, lifetime: p.lifetime + add };
+    tx.update(kidRef, { points });
+    return points;
+  });
+}
+
 // ימים אחרונים (לגרף שבועי במסך ההורים)
 export async function getRecentDays(familyId, kidId, n = 7) {
   const dates = [];
